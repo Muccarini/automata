@@ -1,16 +1,23 @@
-import { useMemo } from "react"
-import type { NodeProps } from "reactflow"
+import { useMemo, useState } from "react"
+import { ChevronDownIcon, ChevronRightIcon } from "lucide-react"
+import { Handle, Position, type NodeProps } from "reactflow"
 
-import { NodeShell } from "@/components/nodes/NodeShell"
+import { InputPinField } from "@/components/nodes/pins/InputPinField"
 import {
   getNodeDefinition,
   getNodePresentation,
   updateNodeDataByPin,
 } from "@/components/nodes/registry/nodeRegistry"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { useMapperStore } from "@/store/mapperStore"
-import type { DataPin, NodeData } from "@/types/graph"
+import type { DataPin, FlowPin, NodeData } from "@/types/graph"
+
+const FLOW_PIN_START = 32
+const FLOW_PIN_GAP = 16
 
 export function NodeRenderer({ id, data }: NodeProps<NodeData>) {
+  const [collapsed, setCollapsed] = useState(false)
   const edges = useMapperStore((state) => state.edges)
   const updateNodeData = useMapperStore((state) => state.updateNodeData)
   const removePinConnections = useMapperStore((state) => state.removePinConnections)
@@ -33,29 +40,110 @@ export function NodeRenderer({ id, data }: NodeProps<NodeData>) {
     return ids
   }, [edges, id])
 
-  const flowInputs = presentation.pins.filter(
-    (pin): pin is Extract<(typeof presentation.pins)[number], { kind: "flow"; direction: "input" }> =>
-      pin.kind === "flow" && pin.direction === "input"
-  )
-  const flowOutputs = presentation.pins.filter(
-    (pin): pin is Extract<(typeof presentation.pins)[number], { kind: "flow"; direction: "output" }> =>
-      pin.kind === "flow" && pin.direction === "output"
-  )
+  const flowPins = presentation.pins.filter((pin): pin is FlowPin => pin.kind === "flow")
+  const flowInputs = flowPins.filter((pin) => pin.direction === "input")
+  const flowOutputs = flowPins.filter((pin) => pin.direction === "output")
   const dataInputs = presentation.pins.filter((pin): pin is DataPin => pin.kind === "data" && pin.direction === "input")
   const dataOutputs = presentation.pins.filter((pin): pin is DataPin => pin.kind === "data" && pin.direction === "output")
+  const NodeIcon = presentation.metadata.icon
+  const headerSummary = `${presentation.metadata.title} ${presentation.metadata.description}`
+
+  const disconnectFromHandle = (event: React.MouseEvent, pinId: string) => {
+    event.preventDefault()
+    event.stopPropagation()
+    removePinConnections(id, pinId)
+  }
 
   return (
-    <NodeShell
-      metadata={presentation.metadata}
-      flowInputs={flowInputs}
-      flowOutputs={flowOutputs}
-      dataInputs={dataInputs}
-      dataOutputs={dataOutputs}
-      connectedPinIds={connectedPinIds}
-      onInlineValueChange={(pin, value) => updateNodeData(id, updateNodeDataByPin(data, pin.id, value))}
-      onDisconnectPin={(pinId) => removePinConnections(id, pinId)}
-    >
-      {definition.renderBody({ data })}
-    </NodeShell>
+    <div className="relative w-[420px] max-w-[420px] overflow-visible rounded-lg border border-white/[0.09] bg-card p-3 shadow-[0_2px_16px_rgba(0,0,0,0.22)]">
+      {flowInputs.map((pin, index) => (
+        <Handle
+          key={pin.id}
+          id={pin.id}
+          type="target"
+          position={Position.Left}
+          className="!left-[-8px] !h-3.5 !w-3.5 !border !border-background !bg-primary"
+          style={{ top: FLOW_PIN_START + index * FLOW_PIN_GAP }}
+          onContextMenu={(event) => disconnectFromHandle(event, pin.id)}
+        />
+      ))}
+
+      {flowOutputs.map((pin, index) => (
+        <Handle
+          key={pin.id}
+          id={pin.id}
+          type="source"
+          position={Position.Right}
+          className="!right-[-8px] !h-3.5 !w-3.5 !border !border-background !bg-primary"
+          style={{ top: FLOW_PIN_START + index * FLOW_PIN_GAP }}
+          onContextMenu={(event) => disconnectFromHandle(event, pin.id)}
+        />
+      ))}
+
+      <div className="grid gap-3">
+        <header className="min-w-0 rounded border border-white/[0.06] bg-black/15 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <NodeIcon className={cn("size-3.5 shrink-0", presentation.metadata.accentClassName)} />
+              <p className="truncate text-[12px] text-muted-foreground" title={headerSummary}>
+                <span className={cn("font-medium", presentation.metadata.accentClassName)}>{presentation.metadata.title}</span>{" "}
+                {presentation.metadata.description}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={collapsed ? "Espandi nodo" : "Comprimi nodo"}
+              className="mr-7 text-muted-foreground"
+              onClick={(event) => {
+                event.stopPropagation()
+                setCollapsed((prev) => !prev)
+              }}
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
+            </Button>
+          </div>
+        </header>
+
+        {!collapsed ? (
+          <section className="min-w-0 overflow-visible rounded border border-white/[0.06] bg-black/15 p-3">
+            <div className="mb-3 min-w-0 rounded border border-white/[0.06] bg-background/40 px-2 py-1.5">
+              {definition.renderBody({ data })}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="min-w-0 space-y-1.5">
+                {dataInputs.map((pin) => (
+                  <InputPinField
+                    key={pin.id}
+                    pin={pin}
+                    connected={connectedPinIds.has(pin.id)}
+                    onValueChange={(value) => updateNodeData(id, updateNodeDataByPin(data, pin.id, value))}
+                    onDisconnect={() => removePinConnections(id, pin.id)}
+                  />
+                ))}
+              </div>
+
+              <div className="min-w-0 space-y-1.5">
+                {dataOutputs.map((pin) => (
+                  <div key={pin.id} className="relative rounded border border-white/[0.07] bg-background/30 px-2 py-1.5">
+                    <div className="truncate text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{pin.label}</div>
+                    <div className="truncate font-mono text-[10px] text-muted-foreground/60">{pin.valueType}</div>
+                    <Handle
+                      id={pin.id}
+                      type="source"
+                      position={Position.Right}
+                      className="!right-[-7px] !h-3 !w-3 !border !border-background !bg-primary"
+                      onContextMenu={(event) => disconnectFromHandle(event, pin.id)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
+      </div>
+    </div>
   )
 }
