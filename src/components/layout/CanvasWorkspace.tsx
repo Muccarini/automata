@@ -1,9 +1,9 @@
-import { MapperCanvas } from "@/components/editor/MapperCanvas"
+import { AutomaCanvas } from "@/components/editor/AutomaCanvas"
 
 export function CanvasWorkspace() {
   return (
     <section className="relative flex-1">
-      <MapperCanvas />
+      <AutomaCanvas />
     </section>
   )
 }

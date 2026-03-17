@@ -1,17 +1,17 @@
 import { useEffect } from "react"
 
 import { useAutomataStore } from "@/store/automataStore"
-import { createDefaultGraphSnapshot, useMapperStore } from "@/store/mapperStore"
+import { createDefaultGraphSnapshot, useAutomaGraphStore } from "@/store/automaGraphStore"
 
 export function useAutomataGraphSync() {
   const selectedAutomataId = useAutomataStore((state) => state.selectedAutomataId)
   const updateAutomataGraph = useAutomataStore((state) => state.updateAutomataGraph)
 
-  const nodes = useMapperStore((state) => state.nodes)
-  const edges = useMapperStore((state) => state.edges)
-  const selectedNodeId = useMapperStore((state) => state.selectedNodeId)
-  const globalVariables = useMapperStore((state) => state.globalVariables)
-  const loadGraphSnapshot = useMapperStore((state) => state.loadGraphSnapshot)
+  const nodes = useAutomaGraphStore((state) => state.nodes)
+  const edges = useAutomaGraphStore((state) => state.edges)
+  const selectedNodeId = useAutomaGraphStore((state) => state.selectedNodeId)
+  const globalVariables = useAutomaGraphStore((state) => state.globalVariables)
+  const loadGraphSnapshot = useAutomaGraphStore((state) => state.loadGraphSnapshot)
 
   useEffect(() => {
     if (!selectedAutomataId) {

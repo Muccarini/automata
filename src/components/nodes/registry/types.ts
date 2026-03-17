@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 
 import type {
+  GlobalVariable,
   InlineValue,
   InlineValueType,
   NodeData,
@@ -8,6 +9,7 @@ import type {
   NodeKind,
   NodeMetadata,
   NodePin,
+  VariableScope,
 } from "@/types/graph"
 
 export type BodyContext<T extends NodeData = NodeData> = {
@@ -20,6 +22,7 @@ export type RuntimeNodeContext<K extends NodeKind = NodeKind> = {
   input: unknown
   next: (targetNodeId?: string) => void
   setResult: (patch: Partial<NodeDataByKind<K>["result"]>) => void
+  resolveVariable: (scope: VariableScope, key: string) => GlobalVariable | undefined
   log: (message: string, payload?: unknown) => void
 }
 

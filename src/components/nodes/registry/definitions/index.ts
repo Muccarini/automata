@@ -6,6 +6,7 @@ import { httpNodeDefinition } from "./http"
 import { logicNodeDefinition } from "./logic"
 import { mapperNodeDefinition } from "./mapper"
 import { triggerNodeDefinition } from "./trigger"
+import { variableNodeDefinition } from "./variable"
 
 type NodeDefinitionRegistry = {
   [K in NodeKind]: INodeDefinition<K>
@@ -16,6 +17,7 @@ const registry: NodeDefinitionRegistry = {
   http: httpNodeDefinition,
   mapper: mapperNodeDefinition,
   logic: logicNodeDefinition,
+  variable: variableNodeDefinition,
 }
 
 export function getNodeDefinition<K extends NodeKind>(kind: K): INodeDefinition<K> {

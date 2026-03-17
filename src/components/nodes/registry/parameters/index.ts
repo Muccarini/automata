@@ -6,12 +6,14 @@ import { getHttpInputParameters } from "./http"
 import { getLogicInputParameters } from "./logic"
 import { getMapperInputParameters } from "./mapper"
 import { getTriggerInputParameters } from "./trigger"
+import { getVariableInputParameters } from "./variable"
 
 const parameterRegistry: Record<NodeKind, (data: NodeData) => InputParameterDescriptor[]> = {
   trigger: () => getTriggerInputParameters(),
   http: () => getHttpInputParameters(),
   mapper: () => getMapperInputParameters(),
   logic: () => getLogicInputParameters(),
+  variable: () => getVariableInputParameters(),
 }
 
 export function getNodeInputParametersInternal(data: NodeData) {

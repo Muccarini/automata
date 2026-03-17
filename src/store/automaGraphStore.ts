@@ -22,9 +22,12 @@ import type {
   MappingRule,
   NodeData,
   NodeKind,
+  PrimitiveVariableType,
+  VariableNodeData,
+  VariableScope,
 } from "@/types/graph"
 
-type MapperState = {
+type AutomaGraphState = {
   nodes: FlowNode[]
   edges: FlowEdge[]
   selectedNodeId: string | null
@@ -36,25 +39,26 @@ type MapperState = {
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
   addNode: (input: AddNodeInput) => void
+  addVariableReferenceNode: (input: { position: XYPosition; scope: VariableScope; key: string; valueType: PrimitiveVariableType }) => void
   removeNode: (nodeId: string) => void
   requestNodeRemoval: (nodeId: string) => void
   confirmNodeRemoval: () => void
   cancelNodeRemoval: () => void
   selectNode: (nodeId: string | null) => void
   updateNodeData: (nodeId: string, update: Partial<NodeData>) => void
-  setMapperRules: (nodeId: string, mappings: MappingRule[]) => void
+  setNodeMappings: (nodeId: string, mappings: MappingRule[]) => void
   getUpstreamSampleFor: (nodeId: string) => unknown
-  runFlowSimulation: () => Promise<void>
-  addGlobalVariable: () => void
+  runFlowSimulation: (input?: { tenantVariables?: GlobalVariable[] }) => Promise<void>
+  addGlobalVariable: (valueType: PrimitiveVariableType) => void
   updateGlobalVariable: (id: string, key: string, value: string) => void
   removeGlobalVariable: (id: string) => void
   removePinConnections: (nodeId: string, pinId: string) => void
 }
 
-const storageKeyV6 = "maas-graph-state-v6"
+const storageKeyV7 = "maas-automa-graph-state-v7"
 
 function isNodeKind(value: unknown): value is NodeKind {
-  return value === "trigger" || value === "http" || value === "mapper" || value === "logic"
+  return value === "trigger" || value === "http" || value === "mapper" || value === "logic" || value === "variable"
 }
 
 function normalizeNodeData(data: unknown, nodeType: NodeKind): NodeData {
@@ -71,7 +75,7 @@ function normalizeNodeData(data: unknown, nodeType: NodeKind): NodeData {
   const safeArgs = rawArgs && typeof rawArgs === "object" ? rawArgs : {}
   const safeResult = rawResult && typeof rawResult === "object" ? rawResult : {}
 
-  return {
+  const normalized = {
     ...fallback,
     ...(raw as Partial<NodeData>),
     nodeType,
@@ -84,6 +88,20 @@ function normalizeNodeData(data: unknown, nodeType: NodeKind): NodeData {
       ...(safeResult as Record<string, unknown>),
     } as NodeData["result"],
   } as NodeData
+
+  if (nodeType === "variable") {
+    const variableData = normalized as VariableNodeData
+    const args = variableData.args
+    const result = variableData.result
+    if (args.valueType !== "string" && args.valueType !== "integer" && args.valueType !== "boolean" && args.valueType !== "enum") {
+      args.valueType = "string"
+    }
+    if (result.valueType !== "string" && result.valueType !== "integer" && result.valueType !== "boolean" && result.valueType !== "enum") {
+      result.valueType = args.valueType
+    }
+  }
+
+  return normalized
 }
 
 function normalizeFlowNode(node: FlowNode): FlowNode {
@@ -111,6 +129,8 @@ function defaultNodeData(nodeType: NodeKind): NodeData {
           ? "HTTP Fetcher"
           : nodeType === "mapper"
             ? "Mapper"
+            : nodeType === "variable"
+              ? "Variable"
             : "If / Else",
     nodeType,
     description:
@@ -120,6 +140,8 @@ function defaultNodeData(nodeType: NodeKind): NodeData {
           ? "Calls HTTP endpoints and captures output"
           : nodeType === "mapper"
             ? "Maps input fields into target output JSON"
+            : nodeType === "variable"
+              ? "Resolves automa or tenant variables at runtime"
             : "Routes payload to true or false branch",
   }
 
@@ -183,6 +205,24 @@ function defaultNodeData(nodeType: NodeKind): NodeData {
         },
         result: {
           conditionMatched: null,
+          error: undefined,
+        },
+      }
+    case "variable":
+      return {
+        ...common,
+        nodeType,
+        args: {
+          scope: "automa",
+          key: "BASE_URL",
+          valueType: "string",
+        },
+        result: {
+          value: "",
+          scope: "automa",
+          key: "BASE_URL",
+          valueType: "string",
+          outputSample: undefined,
           error: undefined,
         },
       }
@@ -314,7 +354,22 @@ function factory(nodeType: NodeKind, position: XYPosition): FlowNode {
 }
 
 function defaultGlobalVariables(): GlobalVariable[] {
-  return [{ id: uid("var"), key: "BASE_URL", value: "https://jsonplaceholder.typicode.com" }]
+  return [{ id: uid("var"), key: "BASE_URL", value: "https://jsonplaceholder.typicode.com", valueType: "string", enumOptions: [] }]
+}
+
+function normalizeGlobalVariable(variable: GlobalVariable): GlobalVariable {
+  return {
+    ...variable,
+    valueType:
+      variable.valueType === "string" || variable.valueType === "integer" || variable.valueType === "boolean" || variable.valueType === "enum"
+        ? variable.valueType
+        : "string",
+    enumOptions: Array.isArray(variable.enumOptions) ? variable.enumOptions.filter((item) => typeof item === "string") : [],
+  }
+}
+
+function normalizeGlobalVariables(variables: GlobalVariable[] | undefined): GlobalVariable[] {
+  return (variables ?? []).map((variable) => normalizeGlobalVariable(variable))
 }
 
 export function createDefaultGraphSnapshot(): GraphSnapshot {
@@ -326,7 +381,7 @@ export function createDefaultGraphSnapshot(): GraphSnapshot {
   }
 }
 
-export const useMapperStore = create<MapperState>()(
+export const useAutomaGraphStore = create<AutomaGraphState>()(
   persist(
     (set, get) => ({
       ...createDefaultGraphSnapshot(),
@@ -348,7 +403,7 @@ export const useMapperStore = create<MapperState>()(
           edges: Array.isArray(snapshot.edges) ? snapshot.edges : [],
           selectedNodeId: snapshot.selectedNodeId ?? null,
           globalVariables: Array.isArray(snapshot.globalVariables)
-            ? snapshot.globalVariables
+            ? normalizeGlobalVariables(snapshot.globalVariables)
             : createDefaultGraphSnapshot().globalVariables,
           pendingNodeDeletionId: null,
         })
@@ -399,6 +454,40 @@ export const useMapperStore = create<MapperState>()(
         set((state) => ({
           nodes: [...state.nodes, factory(nodeType, position)],
         }))
+      },
+
+      addVariableReferenceNode: ({ position, scope, key, valueType }) => {
+        set((state) => {
+          const typeLabel =
+            valueType === "integer" ? "Integer" : valueType === "boolean" ? "Boolean" : valueType === "enum" ? "Enum" : "String"
+          const node = factory("variable", position)
+          const variableNode: FlowNode = {
+            ...node,
+            data: {
+              ...node.data,
+              nodeType: "variable",
+              label: `${scope === "automa" ? "Automa" : "Tenant"} ${typeLabel} Variable`,
+              description: "Outputs a typed variable value",
+              args: {
+                scope,
+                key,
+                valueType,
+              },
+              result: {
+                value: "",
+                scope,
+                key,
+                valueType,
+                outputSample: undefined,
+                error: undefined,
+              },
+            },
+          }
+
+          return {
+            nodes: [...state.nodes, variableNode],
+          }
+        })
       },
 
       removeNode: (nodeId) => {
@@ -455,7 +544,7 @@ export const useMapperStore = create<MapperState>()(
         }))
       },
 
-      setMapperRules: (nodeId, mappings) => {
+      setNodeMappings: (nodeId, mappings) => {
         set((state) => ({
           nodes: state.nodes.map((node) =>
             node.id === nodeId && node.data.nodeType === "mapper"
@@ -483,7 +572,7 @@ export const useMapperStore = create<MapperState>()(
         })
       },
 
-      runFlowSimulation: async () => {
+      runFlowSimulation: async (input) => {
         const state = get()
         const startNode = state.nodes.find((node) => node.data.nodeType === "trigger")
 
@@ -496,15 +585,19 @@ export const useMapperStore = create<MapperState>()(
           nodes: state.nodes,
           edges: state.edges,
           startNodeId: startNode.id,
+          variableSources: {
+            automa: state.globalVariables,
+            tenant: input?.tenantVariables ?? [],
+          },
         })
 
         set({ nodes: result.nodes })
         console.log("[runtime] Flow simulation completed", result.states)
       },
 
-      addGlobalVariable: () => {
+      addGlobalVariable: (valueType) => {
         set((state) => ({
-          globalVariables: [...state.globalVariables, { id: uid("var"), key: "NEW_VAR", value: "" }],
+          globalVariables: [...state.globalVariables, { id: uid("var"), key: "NEW_VAR", value: "", valueType, enumOptions: [] }],
         }))
       },
 
@@ -541,7 +634,7 @@ export const useMapperStore = create<MapperState>()(
       },
     }),
     {
-      name: storageKeyV6,
+      name: storageKeyV7,
       partialize: (state) => ({
         nodes: state.nodes,
         edges: state.edges,
@@ -549,7 +642,7 @@ export const useMapperStore = create<MapperState>()(
         globalVariables: state.globalVariables,
       }),
       merge: (persistedState, currentState) => {
-        const persisted = (persistedState ?? {}) as Partial<MapperState>
+        const persisted = (persistedState ?? {}) as Partial<AutomaGraphState>
 
         return {
           ...currentState,
@@ -557,7 +650,9 @@ export const useMapperStore = create<MapperState>()(
           nodes: Array.isArray(persisted.nodes) ? persisted.nodes.map(normalizeFlowNode) : currentState.nodes,
           edges: Array.isArray(persisted.edges) ? persisted.edges : currentState.edges,
           selectedNodeId: persisted.selectedNodeId ?? currentState.selectedNodeId,
-          globalVariables: Array.isArray(persisted.globalVariables) ? persisted.globalVariables : currentState.globalVariables,
+          globalVariables: Array.isArray(persisted.globalVariables)
+            ? normalizeGlobalVariables(persisted.globalVariables)
+            : currentState.globalVariables,
         }
       },
     }

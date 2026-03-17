@@ -12,14 +12,14 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { useMapperStore } from "@/store/mapperStore"
+import { useAutomaGraphStore } from "@/store/automaGraphStore"
 
 export function NodeDeletionDialog() {
-  const pendingNodeDeletionId = useMapperStore((state) => state.pendingNodeDeletionId)
-  const nodes = useMapperStore((state) => state.nodes)
-  const edges = useMapperStore((state) => state.edges)
-  const confirmNodeRemoval = useMapperStore((state) => state.confirmNodeRemoval)
-  const cancelNodeRemoval = useMapperStore((state) => state.cancelNodeRemoval)
+  const pendingNodeDeletionId = useAutomaGraphStore((state) => state.pendingNodeDeletionId)
+  const nodes = useAutomaGraphStore((state) => state.nodes)
+  const edges = useAutomaGraphStore((state) => state.edges)
+  const confirmNodeRemoval = useAutomaGraphStore((state) => state.confirmNodeRemoval)
+  const cancelNodeRemoval = useAutomaGraphStore((state) => state.cancelNodeRemoval)
 
   const node = nodes.find((item) => item.id === pendingNodeDeletionId) ?? null
   const connectionCount = node

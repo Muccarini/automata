@@ -9,15 +9,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { useMapperStore } from "@/store/mapperStore"
+import { useAutomaGraphStore } from "@/store/automaGraphStore"
 
 export function NodeInspectorDrawer() {
-  const selectedNodeId = useMapperStore((state) => state.selectedNodeId)
-  const nodes = useMapperStore((state) => state.nodes)
-  const selectNode = useMapperStore((state) => state.selectNode)
-  const requestNodeRemoval = useMapperStore((state) => state.requestNodeRemoval)
-  const updateNodeData = useMapperStore((state) => state.updateNodeData)
-  const getUpstreamSampleFor = useMapperStore((state) => state.getUpstreamSampleFor)
+  const selectedNodeId = useAutomaGraphStore((state) => state.selectedNodeId)
+  const nodes = useAutomaGraphStore((state) => state.nodes)
+  const selectNode = useAutomaGraphStore((state) => state.selectNode)
+  const requestNodeRemoval = useAutomaGraphStore((state) => state.requestNodeRemoval)
+  const updateNodeData = useAutomaGraphStore((state) => state.updateNodeData)
+  const getUpstreamSampleFor = useAutomaGraphStore((state) => state.getUpstreamSampleFor)
 
   const node = useMemo(() => nodes.find((item) => item.id === selectedNodeId), [nodes, selectedNodeId])
 

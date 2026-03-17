@@ -1,7 +1,7 @@
 import type { Edge, Node, XYPosition } from "reactflow"
 import type { LucideIcon } from "lucide-react"
 
-export type NodeKind = "trigger" | "http" | "mapper" | "logic"
+export type NodeKind = "trigger" | "http" | "mapper" | "logic" | "variable"
 
 export type NodeDefinitionKey = NodeKind | "global-variable"
 
@@ -13,7 +13,7 @@ export type PredicateOperator = "eq" | "neq" | "gt" | "lt" | "contains"
 export type PinKind = "flow" | "data"
 export type PinSide = "top-left" | "top-right" | "left" | "right"
 export type PinDirection = "input" | "output"
-export type InlineValueType = "string" | "integer" | "object" | "enum"
+export type InlineValueType = "string" | "integer" | "boolean" | "object" | "enum"
 
 export type JsonValueKind = "object" | "array" | "string" | "number" | "boolean" | "null" | "unknown"
 
@@ -31,6 +31,10 @@ export type InlineValue =
   | {
       valueType: "integer"
       value: number
+    }
+  | {
+      valueType: "boolean"
+      value: boolean
     }
   | {
       valueType: "object"
@@ -124,6 +128,18 @@ export type LogicArgs = {
   rightValue: string
 }
 
+export type VariableScope = "automa" | "tenant"
+
+export type PrimitiveVariableType = "string" | "integer" | "boolean" | "enum"
+
+export type PrimitiveVariableValue = string | number | boolean
+
+export type VariableArgs = {
+  scope: VariableScope
+  key: string
+  valueType: PrimitiveVariableType
+}
+
 export type NodeResultBase = {
   error?: string
   outputSample?: unknown
@@ -146,6 +162,13 @@ export type MapperResult = NodeResultBase & {
 
 export type LogicResult = NodeResultBase & {
   conditionMatched: boolean | null
+}
+
+export type VariableResult = NodeResultBase & {
+  value: PrimitiveVariableValue | ""
+  scope: VariableScope
+  key: string
+  valueType: PrimitiveVariableType
 }
 
 export type NodeBaseData<I, O extends NodeResultBase> = {
@@ -171,7 +194,11 @@ export type LogicNodeData = NodeBaseData<LogicArgs, LogicResult> & {
   nodeType: "logic"
 }
 
-export type NodeData = TriggerNodeData | HttpNodeData | MapperNodeData | LogicNodeData
+export type VariableNodeData = NodeBaseData<VariableArgs, VariableResult> & {
+  nodeType: "variable"
+}
+
+export type NodeData = TriggerNodeData | HttpNodeData | MapperNodeData | LogicNodeData | VariableNodeData
 
 export type NodeDataByKind<K extends NodeKind = NodeKind> = Extract<NodeData, { nodeType: K }>
 export type NodeArgsByKind<K extends NodeKind = NodeKind> = NodeDataByKind<K>["args"]
@@ -184,6 +211,8 @@ export type GlobalVariable = {
   id: string
   key: string
   value: string
+  valueType: PrimitiveVariableType
+  enumOptions: string[]
 }
 
 export type GraphSnapshot = {

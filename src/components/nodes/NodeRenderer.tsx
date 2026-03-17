@@ -18,8 +18,9 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import { cancelEvent } from "@/lib/reactEvents"
 import { cn } from "@/lib/utils"
-import { useMapperStore } from "@/store/mapperStore"
+import { useAutomaGraphStore } from "@/store/automaGraphStore"
 import type { DataPin, FlowPin, NodeData } from "@/types/graph"
 
 const FLOW_PIN_CENTER = 40
@@ -32,10 +33,10 @@ const getFlowPinTop = (index: number, total: number) => {
 
 export function NodeRenderer({ id, data }: NodeProps<NodeData>) {
   const [collapsed, setCollapsed] = useState(true)
-  const edges = useMapperStore((state) => state.edges)
-  const updateNodeData = useMapperStore((state) => state.updateNodeData)
-  const removePinConnections = useMapperStore((state) => state.removePinConnections)
-  const requestNodeRemoval = useMapperStore((state) => state.requestNodeRemoval)
+  const edges = useAutomaGraphStore((state) => state.edges)
+  const updateNodeData = useAutomaGraphStore((state) => state.updateNodeData)
+  const removePinConnections = useAutomaGraphStore((state) => state.removePinConnections)
+  const requestNodeRemoval = useAutomaGraphStore((state) => state.requestNodeRemoval)
 
   const presentation = useMemo(() => getNodePresentation(data), [data])
   const definition = useMemo(() => getNodeDefinition(data.nodeType), [data.nodeType])
@@ -62,11 +63,42 @@ export function NodeRenderer({ id, data }: NodeProps<NodeData>) {
   const dataOutputs = presentation.pins.filter((pin): pin is DataPin => pin.kind === "data" && pin.direction === "output")
   const NodeIcon = presentation.metadata.icon
   const headerSummary = `${presentation.metadata.title} ${presentation.metadata.description}`
+  const isVariableNode = data.nodeType === "variable"
 
   const disconnectFromHandle = (event: React.MouseEvent, pinId: string) => {
     event.preventDefault()
     event.stopPropagation()
     removePinConnections(id, pinId)
+  }
+
+  const handleRequestNodeRemoval = (event: React.MouseEvent<HTMLElement> | React.PointerEvent<HTMLElement>) => {
+    cancelEvent(event)
+    requestNodeRemoval(id)
+  }
+
+  if (isVariableNode) {
+    const outputPin = dataOutputs[0]
+
+    return (
+      <div className="relative w-[260px] rounded-md border border-white/[0.12] bg-card px-3 py-2 shadow-[0_2px_10px_rgba(0,0,0,0.18)]">
+        <div className="flex min-w-0 items-center gap-2">
+          <NodeIcon className={cn("size-3.5 shrink-0", presentation.metadata.accentClassName)} />
+          <p className="truncate text-xs font-medium" title={headerSummary}>{presentation.metadata.title}</p>
+        </div>
+        <div className="mt-1 min-w-0 text-xs text-muted-foreground">{definition.renderBody({ data })}</div>
+
+        {outputPin ? (
+          <Handle
+            id={outputPin.id}
+            type="source"
+            position={Position.Right}
+            className="!right-[-7px] !h-3 !w-3 !border !border-background !bg-primary"
+            style={{ top: "50%", transform: "translateY(-50%)" }}
+            onContextMenu={(event) => disconnectFromHandle(event, outputPin.id)}
+          />
+        ) : null}
+      </div>
+    )
   }
 
   return (
@@ -166,6 +198,9 @@ export function NodeRenderer({ id, data }: NodeProps<NodeData>) {
           side="bottom"
           align="start"
           className="w-48 space-y-1 rounded-md border border-border bg-popover p-2 shadow-lg ring-0"
+          onPointerDown={cancelEvent}
+          onPointerUp={cancelEvent}
+          onClick={cancelEvent}
         >
           <ContextMenuGroup>
             <ContextMenuLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -174,7 +209,8 @@ export function NodeRenderer({ id, data }: NodeProps<NodeData>) {
             <ContextMenuItem
               variant="destructive"
               className="w-full justify-start gap-2 rounded-md px-2 py-1.5"
-              onClick={() => requestNodeRemoval(id)}
+              onPointerDown={handleRequestNodeRemoval}
+              onClick={handleRequestNodeRemoval}
             >
               <Trash2Icon className="size-4" />
               Elimina nodo

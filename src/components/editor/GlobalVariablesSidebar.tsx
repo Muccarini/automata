@@ -1,74 +1,114 @@
-import { ChevronLeft, Plus, Trash2 } from "lucide-react"
+import { ChevronDownIcon, ChevronUpIcon, Plus, Trash2, VariableIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
-import { useMapperStore } from "@/store/mapperStore"
+import { useAutomaGraphStore } from "@/store/automaGraphStore"
+import { useEffect, useState } from "react"
 
 type GlobalVariablesSidebarProps = {
   embedded?: boolean
-  onClose?: () => void
+  initiallyOpen?: boolean
   className?: string
 }
 
-export function GlobalVariablesSidebar({ embedded = false, onClose, className }: GlobalVariablesSidebarProps) {
-  const globalVariables = useMapperStore((state) => state.globalVariables)
-  const addGlobalVariable = useMapperStore((state) => state.addGlobalVariable)
-  const updateGlobalVariable = useMapperStore((state) => state.updateGlobalVariable)
-  const removeGlobalVariable = useMapperStore((state) => state.removeGlobalVariable)
+export function GlobalVariablesSidebar({ embedded = false, initiallyOpen = true, className }: GlobalVariablesSidebarProps) {
+  const globalVariables = useAutomaGraphStore((state) => state.globalVariables)
+  const addGlobalVariable = useAutomaGraphStore((state) => state.addGlobalVariable)
+  const updateGlobalVariable = useAutomaGraphStore((state) => state.updateGlobalVariable)
+  const removeGlobalVariable = useAutomaGraphStore((state) => state.removeGlobalVariable)
+  const [isOpen, setIsOpen] = useState(initiallyOpen)
 
-  const containerClassName = embedded
-    ? "h-full rounded-lg border border-border bg-card/95 shadow-xl backdrop-blur-sm"
-    : "h-full w-80 border-r border-border bg-card/50"
+  useEffect(() => {
+    setIsOpen(initiallyOpen)
+  }, [initiallyOpen])
 
-  const scrollAreaClassName = embedded ? "h-[calc(100%-57px)]" : "h-[calc(100vh-57px)]"
+  const handleAddGlobalVariable = () => {
+    if (!isOpen) {
+      setIsOpen(true)
+    }
+
+    addGlobalVariable("string")
+  }
+
+  const sharedContent = (
+    <div className="space-y-3 p-3">
+      {globalVariables.map((item) => (
+        <div key={item.id} className="rounded-md border border-border bg-background p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="font-mono text-xs text-muted-foreground">${"{"}{item.key || "VAR"}{"}"}</span>
+            <Button size="icon" variant="ghost" onClick={() => removeGlobalVariable(item.id)}>
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+          <Input
+            className="mb-2 font-mono text-xs"
+            placeholder="KEY"
+            value={item.key}
+            onChange={(event) => updateGlobalVariable(item.id, event.target.value, item.value)}
+          />
+          <Input
+            className="font-mono text-xs"
+            placeholder="value"
+            value={item.value}
+            onChange={(event) => updateGlobalVariable(item.id, item.key, event.target.value)}
+          />
+        </div>
+      ))}
+    </div>
+  )
+
+  if (embedded) {
+    return (
+      <aside
+        className={cn(
+          "w-[min(24rem,calc(100vw-1.5rem))] max-h-[calc(100vh-1.5rem)] overflow-hidden rounded-lg border border-border bg-card/95 shadow-xl backdrop-blur-sm",
+          className
+        )}
+      >
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+          <VariableIcon className="size-4 text-muted-foreground" />
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center justify-between text-left text-sm font-semibold"
+            onClick={() => setIsOpen((open) => !open)}
+            aria-expanded={isOpen}
+            aria-label="Toggle automa variables"
+          >
+            <span className="truncate">Automa variables ({globalVariables.length})</span>
+            {isOpen ? <ChevronUpIcon className="size-4 text-muted-foreground" /> : <ChevronDownIcon className="size-4 text-muted-foreground" />}
+          </button>
+          <Button size="icon" variant="outline" onClick={handleAddGlobalVariable} aria-label="Add automa variable">
+            <Plus className="size-4" />
+          </Button>
+        </div>
+
+        {isOpen ? (
+          <>
+            <p className="px-3 pt-2 text-xs text-muted-foreground">Variables scoped to the selected automa</p>
+            <ScrollArea className="h-[min(24rem,calc(100vh-15rem))]">{sharedContent}</ScrollArea>
+          </>
+        ) : null}
+      </aside>
+    )
+  }
 
   return (
-    <aside className={cn(containerClassName, className)}>
+    <aside className={cn("h-full w-80 border-r border-border bg-card/50", className)}>
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
           <h2 className="text-sm font-semibold">Automa variables</h2>
           <p className="text-xs text-muted-foreground">Variables scoped to the selected automa</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="icon" variant="outline" onClick={addGlobalVariable}>
+          <Button size="icon" variant="outline" onClick={handleAddGlobalVariable}>
             <Plus className="size-4" />
           </Button>
-          {embedded && onClose ? (
-            <Button size="icon" variant="ghost" onClick={onClose} aria-label="Collapse global variables panel">
-              <ChevronLeft className="size-4" />
-            </Button>
-          ) : null}
         </div>
       </div>
 
-      <ScrollArea className={scrollAreaClassName}>
-        <div className="space-y-3 p-4">
-          {globalVariables.map((item) => (
-            <div key={item.id} className="rounded-md border border-border bg-background p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="font-mono text-xs text-muted-foreground">${"{"}{item.key || "VAR"}{"}"}</span>
-                <Button size="icon" variant="ghost" onClick={() => removeGlobalVariable(item.id)}>
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-              <Input
-                className="mb-2 font-mono text-xs"
-                placeholder="KEY"
-                value={item.key}
-                onChange={(event) => updateGlobalVariable(item.id, event.target.value, item.value)}
-              />
-              <Input
-                className="font-mono text-xs"
-                placeholder="value"
-                value={item.value}
-                onChange={(event) => updateGlobalVariable(item.id, item.key, event.target.value)}
-              />
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
+      <ScrollArea className="h-[calc(100vh-57px)]">{sharedContent}</ScrollArea>
     </aside>
   )
 }

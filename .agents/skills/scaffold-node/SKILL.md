@@ -21,7 +21,7 @@ Before generating code:
    - src/components/nodes/registry/types.ts
    - src/components/nodes/registry/definitions/index.ts
    - src/components/nodes/registry/parameters/index.ts
-   - src/store/mapperStore.ts
+   - src/store/automaGraphStore.ts
 2. Read at least two concrete node implementations (one simple + one complex):
    - Simple candidates: trigger.tsx, logic.tsx, enum.tsx
    - Complex candidates: http.tsx + httpInspectorOverride.tsx, mapper.tsx + mapperInspectorOverride.tsx
@@ -117,7 +117,7 @@ Generate or update files in this order:
    - Register parameter provider.
 6. src/components/nodes/registry/definitions/<nodeType>InspectorOverride.tsx (if custom inspector is requested)
    - Implement override UI.
-7. src/store/mapperStore.ts
+7. src/store/automaGraphStore.ts
    - Extend defaultNodeData with new node sub-structure.
 
 ## Output Format Requirements

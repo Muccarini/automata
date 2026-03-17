@@ -1,9 +1,9 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-import { createDefaultGraphSnapshot } from "@/store/mapperStore"
+import { createDefaultGraphSnapshot } from "@/store/automaGraphStore"
 import type { Automata, Tenant } from "@/types/automata"
-import type { GlobalVariable, GraphSnapshot } from "@/types/graph"
+import type { GlobalVariable, GraphSnapshot, PrimitiveVariableType } from "@/types/graph"
 
 type AutomataState = {
   tenants: Tenant[]
@@ -16,7 +16,7 @@ type AutomataState = {
   addAutomata: (name?: string) => void
   removeAutomata: (automataId: string) => void
   updateAutomataGraph: (automataId: string, graph: GraphSnapshot) => void
-  addTenantGlobalVariable: () => void
+  addTenantGlobalVariable: (valueType: PrimitiveVariableType) => void
   updateTenantGlobalVariable: (id: string, key: string, value: string) => void
   removeTenantGlobalVariable: (id: string) => void
 }
@@ -34,7 +34,22 @@ function uid(prefix: string) {
 }
 
 function createDefaultTenantVariables(tenantId: string): GlobalVariable[] {
-  return [{ id: uid("tenant_var"), key: `${tenantId.toUpperCase().replace(/-/g, "_")}_API_BASE_URL`, value: "" }]
+  return [{ id: uid("tenant_var"), key: `${tenantId.toUpperCase().replace(/-/g, "_")}_API_BASE_URL`, value: "", valueType: "string", enumOptions: [] }]
+}
+
+function normalizeGlobalVariable(variable: GlobalVariable): GlobalVariable {
+  return {
+    ...variable,
+    valueType:
+      variable.valueType === "string" || variable.valueType === "integer" || variable.valueType === "boolean" || variable.valueType === "enum"
+        ? variable.valueType
+        : "string",
+    enumOptions: Array.isArray(variable.enumOptions) ? variable.enumOptions.filter((item) => typeof item === "string") : [],
+  }
+}
+
+function normalizeGlobalVariables(variables: GlobalVariable[] | undefined): GlobalVariable[] {
+  return (variables ?? []).map((variable) => normalizeGlobalVariable(variable))
 }
 
 function createTenantGlobalVariablesSeed(tenants: Tenant[]): Record<string, GlobalVariable[]> {
@@ -168,7 +183,7 @@ export const useAutomataStore = create<AutomataState>()(
         }))
       },
 
-      addTenantGlobalVariable: () => {
+      addTenantGlobalVariable: (valueType) => {
         set((state) => {
           const tenantId = state.selectedTenantId
           const current = state.tenantGlobalVariables[tenantId] ?? []
@@ -176,7 +191,7 @@ export const useAutomataStore = create<AutomataState>()(
           return {
             tenantGlobalVariables: {
               ...state.tenantGlobalVariables,
-              [tenantId]: [...current, { id: uid("tenant_var"), key: "NEW_TENANT_VAR", value: "" }],
+              [tenantId]: [...current, { id: uid("tenant_var"), key: "NEW_TENANT_VAR", value: "", valueType, enumOptions: [] }],
             },
           }
         })
@@ -253,7 +268,10 @@ export const useAutomataStore = create<AutomataState>()(
         const mergedTenantVariables: Record<string, GlobalVariable[]> = {}
         for (const tenant of persistedTenants) {
           const candidate = rawTenantVariables[tenant.id]
-          mergedTenantVariables[tenant.id] = Array.isArray(candidate) && candidate.length > 0 ? candidate : createDefaultTenantVariables(tenant.id)
+          mergedTenantVariables[tenant.id] =
+            Array.isArray(candidate) && candidate.length > 0
+              ? normalizeGlobalVariables(candidate)
+              : createDefaultTenantVariables(tenant.id)
         }
 
         const persistedSelectedAutomataId =

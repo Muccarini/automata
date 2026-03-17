@@ -1,5 +1,5 @@
 import { getNodeDefinition } from "@/components/nodes/registry/nodeRegistry"
-import type { FlowEdge, FlowNode } from "@/types/graph"
+import type { FlowEdge, FlowNode, GlobalVariable, VariableScope } from "@/types/graph"
 
 export type ExecutionNodeStatus = "pending" | "running" | "completed" | "error"
 
@@ -20,6 +20,24 @@ type ExecuteFlowArgs = {
   nodes: FlowNode[]
   edges: FlowEdge[]
   startNodeId: string
+  variableSources?: {
+    automa?: GlobalVariable[]
+    tenant?: GlobalVariable[]
+  }
+}
+
+function buildVariableMap(variables: GlobalVariable[] | undefined) {
+  const map = new Map<string, GlobalVariable>()
+
+  for (const variable of variables ?? []) {
+    if (!variable.key.trim()) {
+      continue
+    }
+
+    map.set(variable.key, variable)
+  }
+
+  return map
 }
 
 function cloneNode(node: FlowNode): FlowNode {
@@ -45,10 +63,12 @@ function getNextNodeIds(node: FlowNode, edges: FlowEdge[]): string[] {
   return outgoingFlowEdges.map((edge) => edge.target)
 }
 
-export async function executeFlowMachine({ nodes, edges, startNodeId }: ExecuteFlowArgs): Promise<ExecuteFlowResult> {
+export async function executeFlowMachine({ nodes, edges, startNodeId, variableSources }: ExecuteFlowArgs): Promise<ExecuteFlowResult> {
   const nodeMap = new Map(nodes.map((node) => [node.id, cloneNode(node)]))
   const states = new Map<string, ExecutionNodeState>()
   const inProgress = new Set<string>()
+  const automaVariableMap = buildVariableMap(variableSources?.automa)
+  const tenantVariableMap = buildVariableMap(variableSources?.tenant)
 
   const executeNode = async (nodeId: string, input: unknown): Promise<void> => {
     const node = nodeMap.get(nodeId)
@@ -91,6 +111,14 @@ export async function executeFlowMachine({ nodes, edges, startNodeId }: ExecuteF
       } as typeof node.data.result
     }
 
+    const resolveVariable = (scope: VariableScope, key: string) => {
+      if (!key.trim()) {
+        return undefined
+      }
+
+      return scope === "tenant" ? tenantVariableMap.get(key) : automaVariableMap.get(key)
+    }
+
     const log = (message: string, payload?: unknown) => {
       console.log(`[runtime] node=${node.id} type=${node.data.nodeType} ${message}`, payload ?? "")
     }
@@ -103,6 +131,7 @@ export async function executeFlowMachine({ nodes, edges, startNodeId }: ExecuteF
         input,
         next,
         setResult,
+        resolveVariable,
         log,
       }
 

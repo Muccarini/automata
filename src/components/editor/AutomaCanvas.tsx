@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState, type MouseEvent } from "react"
-import { BracesIcon, ChevronRight, GitBranchIcon, GlobeIcon, VariableIcon, ZapIcon, type LucideIcon } from "lucide-react"
+import { useEffect, useMemo, useState, type DragEvent, type MouseEvent } from "react"
+import { BracesIcon, GitBranchIcon, GlobeIcon, ZapIcon, type LucideIcon } from "lucide-react"
 import ReactFlow, {
   Background,
   Controls,
-  MiniMap,
   Panel,
   ReactFlowProvider,
   useReactFlow,
@@ -12,10 +11,19 @@ import ReactFlow, {
 } from "reactflow"
 import "reactflow/dist/style.css"
 
-import { GlobalVariablesSidebar } from "@/components/editor/GlobalVariablesSidebar"
+import { AutomaVariablesPanel } from "@/components/editor/AutomaVariablesPanel"
+import {
+  hasVariableReferenceDragPayload,
+  parseVariableReferenceDragPayload,
+  VARIABLE_REFERENCE_DRAG_TYPE,
+} from "@/components/editor/variableReferenceDnD"
 import { Button } from "@/components/ui/button"
+import { blockDragEvent } from "@/lib/reactEvents"
 import { cn } from "@/lib/utils"
-import { useMapperStore } from "@/store/mapperStore"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { useAutomataStore } from "@/store/automataStore"
+import { useAutomaGraphStore } from "@/store/automaGraphStore"
+import { useViewportDnDStore } from "@/store/viewportDnDStore"
 import { NodeRenderer } from "@/components/nodes/NodeRenderer"
 import type { NodeKind } from "@/types/graph"
 
@@ -24,22 +32,29 @@ const nodeTypes: NodeTypes = {
   http: NodeRenderer,
   mapper: NodeRenderer,
   logic: NodeRenderer,
+  variable: NodeRenderer,
 }
 
 function InnerCanvas() {
   const { screenToFlowPosition } = useReactFlow()
-  const nodes = useMapperStore((state) => state.nodes)
-  const edges = useMapperStore((state) => state.edges)
-  const onNodesChange = useMapperStore((state) => state.onNodesChange)
-  const onEdgesChange = useMapperStore((state) => state.onEdgesChange)
-  const onConnect = useMapperStore((state) => state.onConnect)
-  const addNode = useMapperStore((state) => state.addNode)
-  const runFlowSimulation = useMapperStore((state) => state.runFlowSimulation)
-  const selectedNodeId = useMapperStore((state) => state.selectedNodeId)
-  const selectNode = useMapperStore((state) => state.selectNode)
-  const requestNodeRemoval = useMapperStore((state) => state.requestNodeRemoval)
-  const globalVariables = useMapperStore((state) => state.globalVariables)
-  const [isVariablesPanelOpen, setIsVariablesPanelOpen] = useState(true)
+  const nodes = useAutomaGraphStore((state) => state.nodes)
+  const edges = useAutomaGraphStore((state) => state.edges)
+  const onNodesChange = useAutomaGraphStore((state) => state.onNodesChange)
+  const onEdgesChange = useAutomaGraphStore((state) => state.onEdgesChange)
+  const onConnect = useAutomaGraphStore((state) => state.onConnect)
+  const addNode = useAutomaGraphStore((state) => state.addNode)
+  const addVariableReferenceNode = useAutomaGraphStore((state) => state.addVariableReferenceNode)
+  const runFlowSimulation = useAutomaGraphStore((state) => state.runFlowSimulation)
+  const selectedNodeId = useAutomaGraphStore((state) => state.selectedNodeId)
+  const selectNode = useAutomaGraphStore((state) => state.selectNode)
+  const requestNodeRemoval = useAutomaGraphStore((state) => state.requestNodeRemoval)
+  const tenantVariables = useAutomataStore((state) => {
+    const tenantId = state.selectedTenantId
+    return state.tenantGlobalVariables[tenantId] ?? []
+  })
+  const isVariableDragActive = useViewportDnDStore((state) => state.isVariableDragActive)
+  const endVariableDrag = useViewportDnDStore((state) => state.endVariableDrag)
+  const isMobile = useIsMobile()
 
   const [menu, setMenu] = useState<{
     panePosition: XYPosition
@@ -100,6 +115,40 @@ function InnerCanvas() {
     setMenu(null)
   }
 
+  const handleDragOver = (event: DragEvent<Element>) => {
+    if (!hasVariableReferenceDragPayload(event.dataTransfer)) {
+      return
+    }
+
+    event.preventDefault()
+    event.dataTransfer.dropEffect = "copy"
+  }
+
+  const handleDrop = (event: DragEvent<Element>) => {
+    event.preventDefault()
+    endVariableDrag()
+
+    const rawPayload = event.dataTransfer.getData(VARIABLE_REFERENCE_DRAG_TYPE)
+    const payload = parseVariableReferenceDragPayload(rawPayload)
+    if (!payload || !payload.key.trim()) {
+      return
+    }
+
+    const position = screenToFlowPosition({
+      x: event.clientX,
+      y: event.clientY,
+    })
+
+    addVariableReferenceNode({
+      position,
+      scope: payload.scope,
+      key: payload.key.trim(),
+      valueType: payload.valueType,
+    })
+
+    setMenu(null)
+  }
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!selectedNodeId) {
@@ -129,6 +178,20 @@ function InnerCanvas() {
     }
   }, [requestNodeRemoval, selectedNodeId])
 
+  useEffect(() => {
+    const handleGlobalDragEnd = () => {
+      endVariableDrag()
+    }
+
+    window.addEventListener("dragend", handleGlobalDragEnd)
+    window.addEventListener("drop", handleGlobalDragEnd)
+
+    return () => {
+      window.removeEventListener("dragend", handleGlobalDragEnd)
+      window.removeEventListener("drop", handleGlobalDragEnd)
+    }
+  }, [endVariableDrag])
+
   return (
     <div className="relative h-full w-full">
       <ReactFlow
@@ -139,6 +202,8 @@ function InnerCanvas() {
         onConnect={onConnect}
         selectionOnDrag
         panOnDrag={[1]}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
         onPaneContextMenu={handlePaneContextMenu}
         onPaneClick={() => {
           setMenu(null)
@@ -152,15 +217,19 @@ function InnerCanvas() {
         nodeTypes={nodeTypes}
       >
         <Background gap={24} size={1} />
-        <MiniMap pannable zoomable />
         <Controls />
         <Panel position="top-left">
-          <div className="flex items-center gap-2 rounded-md border border-border bg-card/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm">
+          <div
+            className="flex items-center gap-2 rounded-md border border-border bg-card/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm"
+            onDragEnter={blockDragEvent}
+            onDragOver={blockDragEvent}
+            onDrop={blockDragEvent}
+          >
             <Button
               size="sm"
               variant="secondary"
               onClick={() => {
-                void runFlowSimulation()
+                void runFlowSimulation({ tenantVariables })
               }}
             >
               Run Flow
@@ -168,47 +237,27 @@ function InnerCanvas() {
           </div>
         </Panel>
         <Panel position="top-right">
-          <Button
-            size="sm"
-            variant="secondary"
-            className="gap-2"
-            onClick={() => {
-              setIsVariablesPanelOpen((open) => !open)
-            }}
-          >
-            <VariableIcon className="size-4" />
-            Automa variables ({globalVariables.length})
-          </Button>
+          <AutomaVariablesPanel embedded initiallyOpen={!isMobile} />
         </Panel>
       </ReactFlow>
 
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-30 p-3">
-        <div
-          className={cn(
-            "pointer-events-auto h-full w-80 transform transition-transform duration-200 ease-out",
-            isVariablesPanelOpen ? "translate-x-0" : "-translate-x-[calc(100%+0.75rem)]"
-          )}
-        >
-          <GlobalVariablesSidebar embedded onClose={() => setIsVariablesPanelOpen(false)} />
+      {isVariableDragActive ? (
+        <div className="pointer-events-none absolute inset-3 z-20 rounded-2xl border border-dashed border-primary/50 bg-primary/6 shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.12)]">
+          <div className="absolute inset-x-0 top-4 flex justify-center">
+            <div className="rounded-full border border-primary/30 bg-background/90 px-4 py-2 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm">
+              Drop to create a variable node
+            </div>
+          </div>
         </div>
-
-        {!isVariablesPanelOpen ? (
-          <Button
-            size="icon"
-            variant="secondary"
-            className="pointer-events-auto absolute left-3 top-3"
-            onClick={() => setIsVariablesPanelOpen(true)}
-            aria-label="Open global variables panel"
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        ) : null}
-      </div>
+      ) : null}
 
       {menu ? (
         <div
-          className="absolute z-20 w-48 space-y-1 rounded-md border border-border bg-popover p-2 shadow-lg"
+          className="absolute z-40 w-48 space-y-1 rounded-md border border-border bg-popover p-2 shadow-lg"
           style={{ left: menu.panePosition.x, top: menu.panePosition.y }}
+          onDragEnter={blockDragEvent}
+          onDragOver={blockDragEvent}
+          onDrop={blockDragEvent}
         >
           {groupedActions.map(([groupName, groupActions]) => (
             <div key={groupName} className="space-y-1">
@@ -234,7 +283,7 @@ function InnerCanvas() {
   )
 }
 
-export function MapperCanvas() {
+export function AutomaCanvas() {
   return (
     <ReactFlowProvider>
       <InnerCanvas />

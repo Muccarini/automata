@@ -24,6 +24,10 @@ function isIntegerValue(value: InlineValue): value is Extract<InlineValue, { val
   return value.valueType === "integer"
 }
 
+function isBooleanValue(value: InlineValue): value is Extract<InlineValue, { valueType: "boolean" }> {
+  return value.valueType === "boolean"
+}
+
 function isObjectValue(value: InlineValue): value is Extract<InlineValue, { valueType: "object" }> {
   return value.valueType === "object"
 }
@@ -59,6 +63,21 @@ const registry: Record<InlineValueType, IValueRenderer> = {
         <IntegerValueRenderer
           value={value.value}
           onChange={(next) => onChange({ valueType: "integer", value: next })}
+        />
+      )
+    },
+  },
+  boolean: {
+    valueType: "boolean",
+    render: ({ value, onChange }) => {
+      if (!isBooleanValue(value)) {
+        return null
+      }
+
+      return (
+        <StringValueRenderer
+          value={value.value ? "true" : "false"}
+          onChange={(next) => onChange({ valueType: "boolean", value: next.trim().toLowerCase() === "true" })}
         />
       )
     },
