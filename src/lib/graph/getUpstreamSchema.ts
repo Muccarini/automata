@@ -1,4 +1,4 @@
-import type { FlowEdge, FlowNode, SchemaField } from "@/types/graph"
+import type { FlowEdge, FlowNode } from "@/types/graph"
 
 type TraversalParams = {
   nodeId: string
@@ -6,7 +6,7 @@ type TraversalParams = {
   edges: FlowEdge[]
 }
 
-export function getUpstreamSchema({ nodeId, nodes, edges }: TraversalParams): SchemaField[] {
+export function getUpstreamSample({ nodeId, nodes, edges }: TraversalParams): unknown {
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const incomingByTarget = new Map<string, FlowEdge[]>()
 
@@ -34,13 +34,13 @@ export function getUpstreamSchema({ nodeId, nodes, edges }: TraversalParams): Sc
         continue
       }
 
-      if (sourceNode.data.outputSchema.length > 0) {
-        return sourceNode.data.outputSchema
+      if (sourceNode.data.result.outputSample !== undefined) {
+        return sourceNode.data.result.outputSample
       }
 
       queue.push(sourceNode.id)
     }
   }
 
-  return []
+  return null
 }

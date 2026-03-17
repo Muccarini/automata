@@ -1,20 +1,59 @@
+import { toast } from "sonner"
+
+import { detectHttpSchema } from "@/lib/http/detectHttpSchema"
 import type { InspectorOverrideContext } from "@/components/nodes/registry/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-export function renderHttpInspectorOverride({ nodeId, data, updateNodeData, detectHttpSchema }: InspectorOverrideContext) {
+export function renderHttpInspectorOverride({ data, update }: InspectorOverrideContext<"http">) {
+  const samplePreview =
+    data.result.outputSample === undefined
+      ? "No sample detected yet"
+      : JSON.stringify(data.result.outputSample, null, 2)
+
+  const handleDetectClick = () => {
+    void detectHttpSchema(data.args).then((result) => {
+      if (result.ok) {
+        update({
+          result: {
+            ...data.result,
+            statusCode: result.statusCode,
+            responseJson: result.responseJson,
+            responseText: result.responseText,
+            responseHeaders: result.responseHeaders,
+            outputSample: result.outputSample,
+            error: undefined,
+          },
+        })
+        const label = result.topLevelCount === 1 ? "key" : "keys"
+        toast.success(`Sample detected: ${result.topLevelCount} top-level ${label}`)
+        return
+      }
+
+      update({
+        result: {
+          ...data.result,
+          error: result.error,
+        },
+      })
+      toast.error("Sample detect failed", {
+        description: result.error || "Unknown sample detect error",
+      })
+    })
+  }
+
   return (
     <>
       <div className="space-y-2">
         <Label>HTTP Method</Label>
         <Select
-          value={data.http.method}
+          value={data.args.method}
           onValueChange={(value) =>
-            updateNodeData(nodeId, {
-              http: {
-                ...data.http,
+            update({
+              args: {
+                ...data.args,
                 method: value as "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
               },
             })
@@ -37,11 +76,11 @@ export function renderHttpInspectorOverride({ nodeId, data, updateNodeData, dete
         <Label>URL</Label>
         <Input
           className="font-mono text-xs"
-          value={data.http.url}
+          value={data.args.url}
           onChange={(event) =>
-            updateNodeData(nodeId, {
-              http: {
-                ...data.http,
+            update({
+              args: {
+                ...data.args,
                 url: event.target.value,
               },
             })
@@ -56,10 +95,10 @@ export function renderHttpInspectorOverride({ nodeId, data, updateNodeData, dete
             size="sm"
             variant="outline"
             onClick={() =>
-              updateNodeData(nodeId, {
-                http: {
-                  ...data.http,
-                  headers: [...data.http.headers, { key: "", value: "" }],
+              update({
+                args: {
+                  ...data.args,
+                  headers: [...data.args.headers, { key: "", value: "" }],
                 },
               })
             }
@@ -68,19 +107,19 @@ export function renderHttpInspectorOverride({ nodeId, data, updateNodeData, dete
           </Button>
         </div>
         <div className="space-y-2">
-          {data.http.headers.length > 0 ? (
-            data.http.headers.map((header, index) => (
+          {data.args.headers.length > 0 ? (
+            data.args.headers.map((header, index) => (
               <div key={`header-${index}`} className="grid grid-cols-[1fr_1fr_auto] gap-2">
                 <Input
                   className="font-mono text-xs"
                   placeholder="Header"
                   value={header.key}
                   onChange={(event) => {
-                    const headers = [...data.http.headers]
+                    const headers = [...data.args.headers]
                     headers[index] = { ...header, key: event.target.value }
-                    updateNodeData(nodeId, {
-                      http: {
-                        ...data.http,
+                    update({
+                      args: {
+                        ...data.args,
                         headers,
                       },
                     })
@@ -91,11 +130,11 @@ export function renderHttpInspectorOverride({ nodeId, data, updateNodeData, dete
                   placeholder="Value"
                   value={header.value}
                   onChange={(event) => {
-                    const headers = [...data.http.headers]
+                    const headers = [...data.args.headers]
                     headers[index] = { ...header, value: event.target.value }
-                    updateNodeData(nodeId, {
-                      http: {
-                        ...data.http,
+                    update({
+                      args: {
+                        ...data.args,
                         headers,
                       },
                     })
@@ -105,10 +144,10 @@ export function renderHttpInspectorOverride({ nodeId, data, updateNodeData, dete
                   size="sm"
                   variant="ghost"
                   onClick={() => {
-                    const headers = data.http.headers.filter((_, itemIndex) => itemIndex !== index)
-                    updateNodeData(nodeId, {
-                      http: {
-                        ...data.http,
+                    const headers = data.args.headers.filter((_, itemIndex) => itemIndex !== index)
+                    update({
+                      args: {
+                        ...data.args,
                         headers,
                       },
                     })
@@ -127,11 +166,11 @@ export function renderHttpInspectorOverride({ nodeId, data, updateNodeData, dete
       <div className="space-y-2">
         <Label>Auth</Label>
         <Select
-          value={data.http.authType}
+          value={data.args.authType}
           onValueChange={(value) =>
-            updateNodeData(nodeId, {
-              http: {
-                ...data.http,
+            update({
+              args: {
+                ...data.args,
                 authType: value as "none" | "bearer" | "basic",
               },
             })
@@ -147,15 +186,15 @@ export function renderHttpInspectorOverride({ nodeId, data, updateNodeData, dete
           </SelectContent>
         </Select>
 
-        {data.http.authType === "bearer" ? (
+        {data.args.authType === "bearer" ? (
           <Input
             className="font-mono text-xs"
             placeholder="Bearer token"
-            value={data.http.bearerToken}
+            value={data.args.bearerToken}
             onChange={(event) =>
-              updateNodeData(nodeId, {
-                http: {
-                  ...data.http,
+              update({
+                args: {
+                  ...data.args,
                   bearerToken: event.target.value,
                 },
               })
@@ -163,16 +202,16 @@ export function renderHttpInspectorOverride({ nodeId, data, updateNodeData, dete
           />
         ) : null}
 
-        {data.http.authType === "basic" ? (
+        {data.args.authType === "basic" ? (
           <div className="grid grid-cols-2 gap-2">
             <Input
               className="font-mono text-xs"
               placeholder="Username"
-              value={data.http.basicUsername}
+              value={data.args.basicUsername}
               onChange={(event) =>
-                updateNodeData(nodeId, {
-                  http: {
-                    ...data.http,
+                update({
+                  args: {
+                    ...data.args,
                     basicUsername: event.target.value,
                   },
                 })
@@ -181,11 +220,11 @@ export function renderHttpInspectorOverride({ nodeId, data, updateNodeData, dete
             <Input
               className="font-mono text-xs"
               placeholder="Password"
-              value={data.http.basicPassword}
+              value={data.args.basicPassword}
               onChange={(event) =>
-                updateNodeData(nodeId, {
-                  http: {
-                    ...data.http,
+                update({
+                  args: {
+                    ...data.args,
                     basicPassword: event.target.value,
                   },
                 })
@@ -196,17 +235,23 @@ export function renderHttpInspectorOverride({ nodeId, data, updateNodeData, dete
       </div>
 
       <div className="space-y-2">
-        <Button className="w-full" variant="secondary" onClick={() => void detectHttpSchema(nodeId)}>
-          Auto-Detect Schema
+        <Button className="w-full" variant="secondary" onClick={handleDetectClick}>
+          Auto-Detect Sample
         </Button>
-        <p className="font-mono text-[11px] text-muted-foreground">
-          {data.http.autoDetectedAt
-            ? `Last detect: ${new Date(data.http.autoDetectedAt).toLocaleTimeString()}`
-            : "No schema detected yet"}
-        </p>
-        {data.http.autoDetectError ? (
-          <p className="font-mono text-[11px] text-destructive">{data.http.autoDetectError}</p>
+        <p className="font-mono text-[11px] text-muted-foreground">Status: {data.result.statusCode ?? "n/a"}</p>
+        {data.result.error ? (
+          <p className="font-mono text-[11px] text-destructive">{data.result.error}</p>
         ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label>Detected Sample</Label>
+          <span className="font-mono text-[11px] text-muted-foreground">{data.result.responseHeaders.length} headers</span>
+        </div>
+        <pre className="max-h-48 overflow-auto rounded-md border border-border bg-muted/30 p-2 font-mono text-[11px] text-muted-foreground">
+          {samplePreview}
+        </pre>
       </div>
     </>
   )

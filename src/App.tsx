@@ -1,10 +1,15 @@
 ﻿import { useEffect } from "react"
+import { Toaster } from "sonner"
 
-import { GlobalVariablesSidebar } from "@/components/editor/GlobalVariablesSidebar"
-import { MapperCanvas } from "@/components/editor/MapperCanvas"
+import { CanvasWorkspace } from "@/components/layout/CanvasWorkspace"
+import { WorkspaceSidebar } from "@/components/layout/WorkspaceSidebar"
+import { NodeDeletionDialog } from "@/components/editor/NodeDeletionDialog"
 import { NodeInspectorDrawer } from "@/components/editor/NodeInspectorDrawer"
+import { useAutomataGraphSync } from "@/hooks/useAutomataGraphSync"
 
 function App() {
+  useAutomataGraphSync()
+
   useEffect(() => {
     document.documentElement.classList.add("dark")
     document.body.classList.add("dark")
@@ -18,16 +23,12 @@ function App() {
   return (
     <main className="h-screen w-full overflow-hidden bg-background text-foreground">
       <div className="flex h-full w-full">
-        <GlobalVariablesSidebar />
-        <section className="relative flex-1">
-          <header className="absolute left-4 top-4 z-10 rounded-md border border-border bg-card/80 px-3 py-2 backdrop-blur-sm">
-            <p className="text-sm font-semibold">Mapper-as-a-Service MVP</p>
-            <p className="font-mono text-xs text-muted-foreground">DAG editor - trigger {">"} fetch {">"} map {">"} logic</p>
-          </header>
-          <MapperCanvas />
-        </section>
+        <WorkspaceSidebar />
+        <CanvasWorkspace />
       </div>
+      <NodeDeletionDialog />
       <NodeInspectorDrawer />
+      <Toaster position="top-right" richColors closeButton />
     </main>
   )
 }

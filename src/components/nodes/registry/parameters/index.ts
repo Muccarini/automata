@@ -2,7 +2,6 @@ import type { NodeData, NodeKind, NodeParameter } from "@/types/graph"
 
 import type { InputParameterDescriptor } from "@/components/nodes/registry/types"
 
-import { getEnumInputParameters } from "./enum"
 import { getHttpInputParameters } from "./http"
 import { getLogicInputParameters } from "./logic"
 import { getMapperInputParameters } from "./mapper"
@@ -13,7 +12,6 @@ const parameterRegistry: Record<NodeKind, (data: NodeData) => InputParameterDesc
   http: () => getHttpInputParameters(),
   mapper: () => getMapperInputParameters(),
   logic: () => getLogicInputParameters(),
-  enum: (data) => getEnumInputParameters(data),
 }
 
 export function getNodeInputParametersInternal(data: NodeData) {

@@ -11,49 +11,99 @@ import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
 import { getPinDefinition } from "@/components/nodes/registry/nodeRegistry"
-import { getUpstreamSchema } from "@/lib/graph/getUpstreamSchema"
-import { inferSchemaFromJson } from "@/lib/schema/inferSchema"
+import { getUpstreamSample } from "@/lib/graph/getUpstreamSchema"
+import { executeFlowMachine } from "@/lib/runtime/executor"
 import type {
   AddNodeInput,
   FlowEdge,
   FlowNode,
+  GraphSnapshot,
   GlobalVariable,
   MappingRule,
   NodeData,
   NodeKind,
-  SchemaField,
 } from "@/types/graph"
 
 type MapperState = {
   nodes: FlowNode[]
   edges: FlowEdge[]
   selectedNodeId: string | null
+  pendingNodeDeletionId: string | null
   globalVariables: GlobalVariable[]
+  getGraphSnapshot: () => GraphSnapshot
+  loadGraphSnapshot: (snapshot: GraphSnapshot) => void
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onConnect: (connection: Connection) => void
   addNode: (input: AddNodeInput) => void
   removeNode: (nodeId: string) => void
+  requestNodeRemoval: (nodeId: string) => void
+  confirmNodeRemoval: () => void
+  cancelNodeRemoval: () => void
   selectNode: (nodeId: string | null) => void
   updateNodeData: (nodeId: string, update: Partial<NodeData>) => void
-  setNodeOutputSchema: (nodeId: string, schema: SchemaField[]) => void
   setMapperRules: (nodeId: string, mappings: MappingRule[]) => void
-  getUpstreamSchemaFor: (nodeId: string) => SchemaField[]
+  getUpstreamSampleFor: (nodeId: string) => unknown
+  runFlowSimulation: () => Promise<void>
   addGlobalVariable: () => void
   updateGlobalVariable: (id: string, key: string, value: string) => void
   removeGlobalVariable: (id: string) => void
   removePinConnections: (nodeId: string, pinId: string) => void
-  detectHttpSchema: (nodeId: string) => Promise<void>
 }
 
-const storageKeyV2 = "maas-graph-state-v2"
+const storageKeyV6 = "maas-graph-state-v6"
+
+function isNodeKind(value: unknown): value is NodeKind {
+  return value === "trigger" || value === "http" || value === "mapper" || value === "logic"
+}
+
+function normalizeNodeData(data: unknown, nodeType: NodeKind): NodeData {
+  const fallback = defaultNodeData(nodeType)
+
+  if (!data || typeof data !== "object") {
+    return fallback
+  }
+
+  const raw = data as Record<string, unknown>
+  const rawArgs = raw.args ?? raw.inputParams
+  const rawResult = raw.result ?? raw.outputParams
+
+  const safeArgs = rawArgs && typeof rawArgs === "object" ? rawArgs : {}
+  const safeResult = rawResult && typeof rawResult === "object" ? rawResult : {}
+
+  return {
+    ...fallback,
+    ...(raw as Partial<NodeData>),
+    nodeType,
+    args: {
+      ...fallback.args,
+      ...(safeArgs as Record<string, unknown>),
+    } as NodeData["args"],
+    result: {
+      ...fallback.result,
+      ...(safeResult as Record<string, unknown>),
+    } as NodeData["result"],
+  } as NodeData
+}
+
+function normalizeFlowNode(node: FlowNode): FlowNode {
+  const kindFromData = (node.data as { nodeType?: unknown })?.nodeType
+  const kindFromType = node.type
+  const nodeType = isNodeKind(kindFromData) ? kindFromData : isNodeKind(kindFromType) ? kindFromType : "trigger"
+
+  return {
+    ...node,
+    type: nodeType,
+    data: normalizeNodeData(node.data, nodeType),
+  }
+}
 
 function uid(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`
 }
 
 function defaultNodeData(nodeType: NodeKind): NodeData {
-  return {
+  const common = {
     label:
       nodeType === "trigger"
         ? "Trigger"
@@ -61,49 +111,81 @@ function defaultNodeData(nodeType: NodeKind): NodeData {
           ? "HTTP Fetcher"
           : nodeType === "mapper"
             ? "Mapper"
-            : nodeType === "logic"
-              ? "If / Else"
-              : "Enum",
+            : "If / Else",
     nodeType,
     description:
       nodeType === "trigger"
         ? "Starts flow execution"
         : nodeType === "http"
-          ? "Calls HTTP endpoints and detects schema"
+          ? "Calls HTTP endpoints and captures output"
           : nodeType === "mapper"
-            ? "Maps input fields into target schema"
-            : nodeType === "logic"
-              ? "Routes payload to true or false branch"
-              : "Defines constrained values reusable by other nodes",
-    outputSchema: [],
-    trigger: {
-      triggerType: "manual",
-      interval: "5m",
-      webhookPath: `hook/${Math.random().toString(36).slice(2, 8)}`,
-    },
-    http: {
-      method: "GET",
-      url: "https://jsonplaceholder.typicode.com/todos/1",
-      headers: [],
-      authType: "none",
-      bearerToken: "",
-      basicUsername: "",
-      basicPassword: "",
-    },
-    mapper: {
-      targetSchemaText: '{\n  "id": 0,\n  "title": "",\n  "completed": false\n}',
-      mappings: [],
-    },
-    logic: {
-      leftPath: "status_code",
-      operator: "eq",
-      rightValue: "200",
-    },
-    enum: {
-      enumName: "HttpMethod",
-      values: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-      selectedValue: "GET",
-    },
+            ? "Maps input fields into target output JSON"
+            : "Routes payload to true or false branch",
+  }
+
+  switch (nodeType) {
+    case "trigger":
+      return {
+        ...common,
+        nodeType,
+        args: {
+          triggerType: "manual",
+          interval: "5m",
+          webhookPath: `hook/${Math.random().toString(36).slice(2, 8)}`,
+        },
+        result: {
+          payload: null,
+          error: undefined,
+        },
+      }
+    case "http":
+      return {
+        ...common,
+        nodeType,
+        args: {
+          method: "GET",
+          url: "https://jsonplaceholder.typicode.com/todos/1",
+          headers: [],
+          authType: "none",
+          bearerToken: "",
+          basicUsername: "",
+          basicPassword: "",
+        },
+        result: {
+          statusCode: null,
+          responseJson: null,
+          responseText: "",
+          responseHeaders: [],
+          error: undefined,
+        },
+      }
+    case "mapper":
+      return {
+        ...common,
+        nodeType,
+        args: {
+          returnJsonText: '{\n  "id": 0,\n  "title": "",\n  "completed": false\n}',
+          mappings: [],
+        },
+        result: {
+          mappedJson: null,
+          error: undefined,
+        },
+      }
+    case "logic":
+      return {
+        ...common,
+        nodeType,
+        args: {
+          leftPath: "status_code",
+          operator: "eq",
+          rightValue: "200",
+        },
+        result: {
+          conditionMatched: null,
+          error: undefined,
+        },
+      }
   }
 }
 
@@ -231,13 +313,46 @@ function factory(nodeType: NodeKind, position: XYPosition): FlowNode {
   }
 }
 
+function defaultGlobalVariables(): GlobalVariable[] {
+  return [{ id: uid("var"), key: "BASE_URL", value: "https://jsonplaceholder.typicode.com" }]
+}
+
+export function createDefaultGraphSnapshot(): GraphSnapshot {
+  return {
+    nodes: [factory("trigger", { x: 180, y: 120 })],
+    edges: [],
+    selectedNodeId: null,
+    globalVariables: defaultGlobalVariables(),
+  }
+}
+
 export const useMapperStore = create<MapperState>()(
   persist(
     (set, get) => ({
-      nodes: [factory("trigger", { x: 180, y: 120 })],
-      edges: [],
-      selectedNodeId: null,
-      globalVariables: [{ id: uid("var"), key: "BASE_URL", value: "https://jsonplaceholder.typicode.com" }],
+      ...createDefaultGraphSnapshot(),
+      pendingNodeDeletionId: null,
+
+      getGraphSnapshot: () => {
+        const state = get()
+        return {
+          nodes: state.nodes,
+          edges: state.edges,
+          selectedNodeId: state.selectedNodeId,
+          globalVariables: state.globalVariables,
+        }
+      },
+
+      loadGraphSnapshot: (snapshot) => {
+        set({
+          nodes: Array.isArray(snapshot.nodes) ? snapshot.nodes.map(normalizeFlowNode) : createDefaultGraphSnapshot().nodes,
+          edges: Array.isArray(snapshot.edges) ? snapshot.edges : [],
+          selectedNodeId: snapshot.selectedNodeId ?? null,
+          globalVariables: Array.isArray(snapshot.globalVariables)
+            ? snapshot.globalVariables
+            : createDefaultGraphSnapshot().globalVariables,
+          pendingNodeDeletionId: null,
+        })
+      },
 
       onNodesChange: (changes) => {
         set((state) => ({
@@ -273,29 +388,9 @@ export const useMapperStore = create<MapperState>()(
               state.edges
             )
 
-          const nextNodes = state.nodes.map((node) => {
-            if (node.id !== connection.target || node.data.nodeType !== "mapper") {
-              return node
-            }
-
-            const upstream = getUpstreamSchema({
-              nodeId: node.id,
-              nodes: state.nodes,
-              edges: nextEdges,
-            })
-
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                outputSchema: upstream,
-              },
-            }
-          })
-
           return {
             edges: nextEdges,
-            nodes: nextNodes,
+            nodes: state.nodes,
           }
         })
       },
@@ -311,7 +406,33 @@ export const useMapperStore = create<MapperState>()(
           nodes: state.nodes.filter((node) => node.id !== nodeId),
           edges: state.edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId),
           selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
+          pendingNodeDeletionId: state.pendingNodeDeletionId === nodeId ? null : state.pendingNodeDeletionId,
         }))
+      },
+
+      requestNodeRemoval: (nodeId) => {
+        const state = get()
+        const nodeExists = state.nodes.some((node) => node.id === nodeId)
+
+        if (!nodeExists) {
+          return
+        }
+
+        set({ pendingNodeDeletionId: nodeId })
+      },
+
+      confirmNodeRemoval: () => {
+        const { pendingNodeDeletionId, removeNode } = get()
+
+        if (!pendingNodeDeletionId) {
+          return
+        }
+
+        removeNode(pendingNodeDeletionId)
+      },
+
+      cancelNodeRemoval: () => {
+        set({ pendingNodeDeletionId: null })
       },
 
       selectNode: (nodeId) => {
@@ -327,23 +448,7 @@ export const useMapperStore = create<MapperState>()(
                   data: {
                     ...node.data,
                     ...update,
-                  },
-                }
-              : node
-          ),
-        }))
-      },
-
-      setNodeOutputSchema: (nodeId, schema) => {
-        set((state) => ({
-          nodes: state.nodes.map((node) =>
-            node.id === nodeId
-              ? {
-                  ...node,
-                  data: {
-                    ...node.data,
-                    outputSchema: schema,
-                  },
+                  } as NodeData,
                 }
               : node
           ),
@@ -353,13 +458,13 @@ export const useMapperStore = create<MapperState>()(
       setMapperRules: (nodeId, mappings) => {
         set((state) => ({
           nodes: state.nodes.map((node) =>
-            node.id === nodeId
+            node.id === nodeId && node.data.nodeType === "mapper"
               ? {
                   ...node,
                   data: {
                     ...node.data,
-                    mapper: {
-                      ...node.data.mapper,
+                    args: {
+                      ...node.data.args,
                       mappings,
                     },
                   },
@@ -369,13 +474,32 @@ export const useMapperStore = create<MapperState>()(
         }))
       },
 
-      getUpstreamSchemaFor: (nodeId) => {
+      getUpstreamSampleFor: (nodeId) => {
         const state = get()
-        return getUpstreamSchema({
+        return getUpstreamSample({
           nodeId,
           nodes: state.nodes,
           edges: state.edges,
         })
+      },
+
+      runFlowSimulation: async () => {
+        const state = get()
+        const startNode = state.nodes.find((node) => node.data.nodeType === "trigger")
+
+        if (!startNode) {
+          console.log("[runtime] No trigger node found, aborting simulation")
+          return
+        }
+
+        const result = await executeFlowMachine({
+          nodes: state.nodes,
+          edges: state.edges,
+          startNodeId: startNode.id,
+        })
+
+        set({ nodes: result.nodes })
+        console.log("[runtime] Flow simulation completed", result.states)
       },
 
       addGlobalVariable: () => {
@@ -415,64 +539,28 @@ export const useMapperStore = create<MapperState>()(
           ),
         }))
       },
-
-      detectHttpSchema: async (nodeId) => {
-        const state = get()
-        const node = state.nodes.find((item) => item.id === nodeId)
-
-        if (!node || node.data.nodeType !== "http") {
-          return
-        }
-
-        const url = node.data.http.url || "https://jsonplaceholder.typicode.com/todos/1"
-
-        try {
-          const response = await fetch(url)
-          const json = (await response.json()) as unknown
-          const schema = inferSchemaFromJson(json)
-
-          set((current) => ({
-            nodes: current.nodes.map((item) =>
-              item.id === nodeId
-                ? {
-                    ...item,
-                    data: {
-                      ...item.data,
-                      outputSchema: schema,
-                      http: {
-                        ...item.data.http,
-                        autoDetectedAt: new Date().toISOString(),
-                        autoDetectError: "",
-                      },
-                    },
-                  }
-                : item
-            ),
-          }))
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "Unknown schema detect error"
-
-          set((current) => ({
-            nodes: current.nodes.map((item) =>
-              item.id === nodeId
-                ? {
-                    ...item,
-                    data: {
-                      ...item.data,
-                      http: {
-                        ...item.data.http,
-                        autoDetectError: message,
-                      },
-                    },
-                  }
-                : item
-            ),
-          }))
-        }
-      },
     }),
     {
-      name: storageKeyV2,
+      name: storageKeyV6,
+      partialize: (state) => ({
+        nodes: state.nodes,
+        edges: state.edges,
+        selectedNodeId: state.selectedNodeId,
+        globalVariables: state.globalVariables,
+      }),
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState ?? {}) as Partial<MapperState>
+
+        return {
+          ...currentState,
+          ...persisted,
+          nodes: Array.isArray(persisted.nodes) ? persisted.nodes.map(normalizeFlowNode) : currentState.nodes,
+          edges: Array.isArray(persisted.edges) ? persisted.edges : currentState.edges,
+          selectedNodeId: persisted.selectedNodeId ?? currentState.selectedNodeId,
+          globalVariables: Array.isArray(persisted.globalVariables) ? persisted.globalVariables : currentState.globalVariables,
+        }
+      },
     }
   )
 )
+

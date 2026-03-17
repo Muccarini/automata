@@ -1,18 +1,18 @@
-import { BotIcon } from "lucide-react"
+import { ZapIcon } from "lucide-react"
 
 import { getNodeInputParameters } from "@/components/nodes/registry/parameters"
 import type { INodeDefinition } from "@/components/nodes/registry/types"
 
 import { outputPin, toDataPin } from "./shared"
 
-export const triggerNodeDefinition: INodeDefinition = {
+export const triggerNodeDefinition: INodeDefinition<"trigger"> = {
   kind: "trigger",
   metadata: (data) => ({
     title: data.label,
     description: data.description,
     category: "Trigger",
-    accentClassName: "text-emerald-400",
-    icon: BotIcon,
+    accentClassName: "text-amber-500",
+    icon: ZapIcon,
   }),
   pins: (data) => [
     {
@@ -25,10 +25,34 @@ export const triggerNodeDefinition: INodeDefinition = {
     ...getNodeInputParameters(data).map(toDataPin),
     outputPin("data:payload", "Payload"),
   ],
-  renderBody: ({ data }) => (
-    <>
-      <p className="text-sm font-semibold text-foreground">{data.trigger.triggerType}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{data.description}</p>
-    </>
-  ),
+  renderBody: ({ data }) => {
+    return (
+      <>
+        <p className="text-sm font-semibold text-foreground">{data.args.triggerType}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{data.description}</p>
+      </>
+    )
+  },
+  onEnter: ({ data, log, setResult }) => {
+    log("onEnter", { triggerType: data.args.triggerType })
+    setResult({
+      payload: data.result.payload,
+      outputSample: data.result.payload,
+      error: undefined,
+    })
+  },
+  onUpdate: ({ data, log, setResult }) => {
+    const payload = {
+      triggerType: data.args.triggerType,
+      interval: data.args.interval,
+      webhookPath: data.args.webhookPath,
+    }
+    setResult({ payload, outputSample: payload, error: undefined })
+    log("onUpdate", payload)
+    return payload
+  },
+  onExit: ({ next, log }) => {
+    log("onExit")
+    next()
+  },
 }

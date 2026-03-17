@@ -1,8 +1,10 @@
 import { useMemo } from "react"
+import { Trash2Icon } from "lucide-react"
 
 import { NodeInputParametersSection } from "@/components/editor/inspector/NodeInputParametersSection"
 import { getNodeDefinition, getNodeInputParameters } from "@/components/nodes/registry/nodeRegistry"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -13,21 +15,19 @@ export function NodeInspectorDrawer() {
   const selectedNodeId = useMapperStore((state) => state.selectedNodeId)
   const nodes = useMapperStore((state) => state.nodes)
   const selectNode = useMapperStore((state) => state.selectNode)
+  const requestNodeRemoval = useMapperStore((state) => state.requestNodeRemoval)
   const updateNodeData = useMapperStore((state) => state.updateNodeData)
-  const setNodeOutputSchema = useMapperStore((state) => state.setNodeOutputSchema)
-  const setMapperRules = useMapperStore((state) => state.setMapperRules)
-  const detectHttpSchema = useMapperStore((state) => state.detectHttpSchema)
-  const getUpstreamSchemaFor = useMapperStore((state) => state.getUpstreamSchemaFor)
+  const getUpstreamSampleFor = useMapperStore((state) => state.getUpstreamSampleFor)
 
   const node = useMemo(() => nodes.find((item) => item.id === selectedNodeId), [nodes, selectedNodeId])
 
-  const upstreamSchema = useMemo(() => {
+  const upstreamSample = useMemo(() => {
     if (!node) {
-      return []
+      return null
     }
 
-    return getUpstreamSchemaFor(node.id)
-  }, [getUpstreamSchemaFor, node])
+    return getUpstreamSampleFor(node.id)
+  }, [getUpstreamSampleFor, node])
 
   const inputParameters = useMemo(() => {
     if (!node) {
@@ -89,15 +89,18 @@ export function NodeInspectorDrawer() {
 
                 {definition?.renderInspectorOverride
                   ? definition.renderInspectorOverride({
-                      nodeId: node.id,
                       data: node.data,
-                      upstreamSchema,
-                      updateNodeData,
-                      setNodeOutputSchema,
-                      setMapperRules,
-                      detectHttpSchema,
+                      upstreamSample,
+                      update: (patch) => updateNodeData(node.id, patch),
                     })
                   : null}
+
+                <div className="flex justify-end pt-2">
+                  <Button variant="destructive" size="sm" onClick={() => requestNodeRemoval(node.id)}>
+                    <Trash2Icon />
+                    Elimina nodo
+                  </Button>
+                </div>
               </div>
             </ScrollArea>
           </>

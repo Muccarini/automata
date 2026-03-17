@@ -12,14 +12,10 @@ export function EnumValueRenderer({ value, options, onChange }: EnumValueRendere
 
   return (
     <Select value={selectedValue} onValueChange={(nextValue) => onChange(nextValue ?? "")}>
-      <SelectTrigger
-        className="nodrag h-8 font-mono text-[11px]"
-        onPointerDown={(event) => event.stopPropagation()}
-        onClick={(event) => event.stopPropagation()}
-      >
+      <SelectTrigger className="h-8 font-mono text-[11px]">
         <SelectValue />
       </SelectTrigger>
-      <SelectContent onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+      <SelectContent>
         {normalizedOptions.map((option) => (
           <SelectItem key={option || "empty-option"} value={option}>
             {option || "(empty)"}

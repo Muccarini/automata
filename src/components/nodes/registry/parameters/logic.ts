@@ -1,5 +1,5 @@
 import type { InputParameterDescriptor } from "@/components/nodes/registry/types"
-import type { NodeData } from "@/types/graph"
+import type { LogicArgs } from "@/types/graph"
 
 import { createEnumParameter, createStringParameter } from "./shared"
 
@@ -9,44 +9,53 @@ export function getLogicInputParameters(): InputParameterDescriptor[] {
       "logic-left-path",
       "data:leftPath",
       "Left Path",
-      "logic.leftPath",
-      (data) => data.logic.leftPath,
-      (data, value) => ({
-        ...data,
-        logic: {
-          ...data.logic,
-          leftPath: value,
-        },
-      })
+      "args.leftPath",
+      (data) => (data.nodeType === "logic" ? data.args.leftPath : ""),
+      (data, value) =>
+        data.nodeType !== "logic"
+          ? data
+          : {
+              ...data,
+              args: {
+                ...data.args,
+                leftPath: value,
+              },
+            }
     ),
     createEnumParameter(
       "logic-operator",
       "data:operator",
       "Operator",
-      "logic.operator",
-      (data) => data.logic.operator,
-      (data, value) => ({
-        ...data,
-        logic: {
-          ...data.logic,
-          operator: value as NodeData["logic"]["operator"],
-        },
-      }),
+      "args.operator",
+      (data) => (data.nodeType === "logic" ? data.args.operator : "eq"),
+      (data, value) =>
+        data.nodeType !== "logic"
+          ? data
+          : {
+              ...data,
+              args: {
+                ...data.args,
+                operator: value as LogicArgs["operator"],
+              },
+            },
       () => ["eq", "neq", "gt", "lt", "contains"]
     ),
     createStringParameter(
       "logic-right-value",
       "data:rightValue",
       "Compare",
-      "logic.rightValue",
-      (data) => data.logic.rightValue,
-      (data, value) => ({
-        ...data,
-        logic: {
-          ...data.logic,
-          rightValue: value,
-        },
-      })
+      "args.rightValue",
+      (data) => (data.nodeType === "logic" ? data.args.rightValue : ""),
+      (data, value) =>
+        data.nodeType !== "logic"
+          ? data
+          : {
+              ...data,
+              args: {
+                ...data.args,
+                rightValue: value,
+              },
+            }
     ),
   ]
 }

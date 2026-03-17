@@ -2,45 +2,21 @@ import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { MappingRule, SchemaField, SchemaType } from "@/types/graph"
+import type { JsonValueKind, MappingRule } from "@/types/graph"
 
 type FlatField = {
   path: string
-  type: SchemaType
+  type: JsonValueKind
 }
 
 type VisualMapperProps = {
-  inputSchema: SchemaField[]
-  targetSchemaText: string
+  inputSample: unknown
+  returnJsonText: string
   mappings: MappingRule[]
   onMappingsChange: (mappings: MappingRule[]) => void
 }
 
-function isLeaf(field: SchemaField) {
-  return !field.children || field.children.length === 0 || (field.type !== "object" && field.type !== "array")
-}
-
-function flattenInputSchema(fields: SchemaField[]): FlatField[] {
-  const result: FlatField[] = []
-
-  const walk = (items: SchemaField[]) => {
-    for (const item of items) {
-      if (isLeaf(item)) {
-        result.push({ path: item.path, type: item.type })
-        continue
-      }
-
-      if (item.children) {
-        walk(item.children)
-      }
-    }
-  }
-
-  walk(fields)
-  return result
-}
-
-function toSchemaType(value: unknown): SchemaType {
+function toJsonValueKind(value: unknown): JsonValueKind {
   if (value === null) {
     return "null"
   }
@@ -63,8 +39,35 @@ function toSchemaType(value: unknown): SchemaType {
   }
 }
 
+function flattenInputSample(value: unknown, prefix = ""): FlatField[] {
+  const type = toJsonValueKind(value)
+
+  if (type === "object" && value && !Array.isArray(value)) {
+    const entries = Object.entries(value as Record<string, unknown>)
+    if (entries.length === 0) {
+      return [{ path: prefix || "value", type }]
+    }
+    return entries.flatMap(([key, child]) => {
+      const nextPath = prefix ? `${prefix}.${key}` : key
+      return flattenInputSample(child, nextPath)
+    })
+  }
+
+  if (type === "array") {
+    const arr = value as unknown[]
+    const sample = arr[0]
+    const path = `${prefix || "value"}[]`
+    if (sample === undefined) {
+      return [{ path, type }]
+    }
+    return flattenInputSample(sample, path)
+  }
+
+  return [{ path: prefix || "value", type }]
+}
+
 function flattenTargetJson(value: unknown, prefix = ""): FlatField[] {
-  const type = toSchemaType(value)
+  const type = toJsonValueKind(value)
 
   if (type === "object" && value && !Array.isArray(value)) {
     const entries = Object.entries(value as Record<string, unknown>)
@@ -87,13 +90,13 @@ function flattenTargetJson(value: unknown, prefix = ""): FlatField[] {
   return [{ path: prefix || "value", type }]
 }
 
-function parseTargetFields(targetSchemaText: string): { fields: FlatField[]; error: string } {
+function parseTargetFields(returnJsonText: string): { fields: FlatField[]; error: string } {
   try {
-    const parsed = JSON.parse(targetSchemaText) as unknown
+    const parsed = JSON.parse(returnJsonText) as unknown
     const fields = flattenTargetJson(parsed)
     return { fields, error: "" }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid target schema JSON"
+    const message = error instanceof Error ? error.message : "Invalid target output JSON"
     return { fields: [], error: message }
   }
 }
@@ -104,11 +107,11 @@ function uid() {
 
 const ROW_HEIGHT = 34
 
-export function VisualMapper({ inputSchema, targetSchemaText, mappings, onMappingsChange }: VisualMapperProps) {
+export function VisualMapper({ inputSample, returnJsonText, mappings, onMappingsChange }: VisualMapperProps) {
   const [selectedInput, setSelectedInput] = useState<string | null>(null)
 
-  const inputFields = useMemo(() => flattenInputSchema(inputSchema), [inputSchema])
-  const targetResult = useMemo(() => parseTargetFields(targetSchemaText), [targetSchemaText])
+  const inputFields = useMemo(() => flattenInputSample(inputSample), [inputSample])
+  const targetResult = useMemo(() => parseTargetFields(returnJsonText), [returnJsonText])
 
   const inputIndex = useMemo(() => {
     return new Map(inputFields.map((field, index) => [field.path, index]))
@@ -224,7 +227,7 @@ export function VisualMapper({ inputSchema, targetSchemaText, mappings, onMappin
       </div>
 
       {targetResult.error ? (
-        <p className="font-mono text-[11px] text-destructive">Invalid target schema JSON: {targetResult.error}</p>
+        <p className="font-mono text-[11px] text-destructive">Invalid target output JSON: {targetResult.error}</p>
       ) : null}
 
       <div className="space-y-2 rounded-md border border-border p-2">

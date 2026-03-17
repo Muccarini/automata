@@ -3,16 +3,24 @@ import type { ReactNode } from "react"
 import type {
   InlineValue,
   InlineValueType,
-  MappingRule,
   NodeData,
+  NodeDataByKind,
   NodeKind,
   NodeMetadata,
   NodePin,
-  SchemaField,
 } from "@/types/graph"
 
-export type BodyContext = {
-  data: NodeData
+export type BodyContext<T extends NodeData = NodeData> = {
+  data: T
+}
+
+export type RuntimeNodeContext<K extends NodeKind = NodeKind> = {
+  nodeId: string
+  data: NodeDataByKind<K>
+  input: unknown
+  next: (targetNodeId?: string) => void
+  setResult: (patch: Partial<NodeDataByKind<K>["result"]>) => void
+  log: (message: string, payload?: unknown) => void
 }
 
 export type InputParameterDescriptor = {
@@ -26,21 +34,22 @@ export type InputParameterDescriptor = {
   setInlineValue: (data: NodeData, nextValue: InlineValue) => NodeData
 }
 
-export type InspectorOverrideContext = {
-  nodeId: string
-  data: NodeData
-  upstreamSchema: SchemaField[]
-  updateNodeData: (nodeId: string, update: Partial<NodeData>) => void
-  setNodeOutputSchema: (nodeId: string, schema: SchemaField[]) => void
-  setMapperRules: (nodeId: string, mappings: MappingRule[]) => void
-  detectHttpSchema: (nodeId: string) => Promise<void>
+export type InspectorOverrideContext<K extends NodeKind = NodeKind> = {
+  data: NodeDataByKind<K>
+  upstreamSample: unknown
+  update: (patch: Partial<NodeDataByKind<K>>) => void
 }
 
-export interface INodeDefinition {
-  kind: NodeKind
-  metadata: (data: NodeData) => NodeMetadata
-  pins: (data: NodeData) => NodePin[]
-  renderBody: (context: BodyContext) => ReactNode
+export type InspectorContextByKind<K extends NodeKind> = InspectorOverrideContext<K>
+
+export interface INodeDefinition<K extends NodeKind = NodeKind> {
+  kind: K
+  metadata: (data: NodeDataByKind<K>) => NodeMetadata
+  pins: (data: NodeDataByKind<K>) => NodePin[]
+  renderBody: (context: BodyContext<NodeDataByKind<K>>) => ReactNode
   disableDefaultInputParameters?: boolean
-  renderInspectorOverride?: (context: InspectorOverrideContext) => ReactNode
+  renderInspectorOverride?: (context: InspectorOverrideContext<K>) => ReactNode
+  onEnter?: (context: RuntimeNodeContext<K>) => void | Promise<void>
+  onUpdate?: (context: RuntimeNodeContext<K>) => unknown | Promise<unknown>
+  onExit?: (context: RuntimeNodeContext<K>) => void | Promise<void>
 }

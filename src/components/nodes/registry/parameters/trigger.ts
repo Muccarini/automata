@@ -1,5 +1,5 @@
 import type { InputParameterDescriptor } from "@/components/nodes/registry/types"
-import type { NodeData } from "@/types/graph"
+import type { TriggerArgs } from "@/types/graph"
 
 import { createEnumParameter, createStringParameter } from "./shared"
 
@@ -9,44 +9,53 @@ export function getTriggerInputParameters(): InputParameterDescriptor[] {
       "trigger-type",
       "data:triggerType",
       "Type",
-      "trigger.triggerType",
-      (data) => data.trigger.triggerType,
-      (data, value) => ({
-        ...data,
-        trigger: {
-          ...data.trigger,
-          triggerType: value as NodeData["trigger"]["triggerType"],
-        },
-      }),
+      "args.triggerType",
+      (data) => (data.nodeType === "trigger" ? data.args.triggerType : "manual"),
+      (data, value) =>
+        data.nodeType !== "trigger"
+          ? data
+          : {
+              ...data,
+              args: {
+                ...data.args,
+                triggerType: value as TriggerArgs["triggerType"],
+              },
+            },
       () => ["manual", "cron", "webhook"]
     ),
     createStringParameter(
       "trigger-interval",
       "data:triggerInterval",
       "Interval",
-      "trigger.interval",
-      (data) => data.trigger.interval,
-      (data, value) => ({
-        ...data,
-        trigger: {
-          ...data.trigger,
-          interval: value,
-        },
-      })
+      "args.interval",
+      (data) => (data.nodeType === "trigger" ? data.args.interval : ""),
+      (data, value) =>
+        data.nodeType !== "trigger"
+          ? data
+          : {
+              ...data,
+              args: {
+                ...data.args,
+                interval: value,
+              },
+            }
     ),
     createStringParameter(
       "trigger-webhook-path",
       "data:webhookPath",
       "Webhook Path",
-      "trigger.webhookPath",
-      (data) => data.trigger.webhookPath,
-      (data, value) => ({
-        ...data,
-        trigger: {
-          ...data.trigger,
-          webhookPath: value,
-        },
-      })
+      "args.webhookPath",
+      (data) => (data.nodeType === "trigger" ? data.args.webhookPath : ""),
+      (data, value) =>
+        data.nodeType !== "trigger"
+          ? data
+          : {
+              ...data,
+              args: {
+                ...data.args,
+                webhookPath: value,
+              },
+            }
     ),
   ]
 }

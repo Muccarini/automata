@@ -1,7 +1,7 @@
 import type { Edge, Node, XYPosition } from "reactflow"
 import type { LucideIcon } from "lucide-react"
 
-export type NodeKind = "trigger" | "http" | "mapper" | "logic" | "enum"
+export type NodeKind = "trigger" | "http" | "mapper" | "logic"
 
 export type NodeDefinitionKey = NodeKind | "global-variable"
 
@@ -15,15 +15,7 @@ export type PinSide = "top-left" | "top-right" | "left" | "right"
 export type PinDirection = "input" | "output"
 export type InlineValueType = "string" | "integer" | "object" | "enum"
 
-export type SchemaType = "object" | "array" | "string" | "number" | "boolean" | "null" | "unknown"
-
-export type SchemaField = {
-  id: string
-  name: string
-  path: string
-  type: SchemaType
-  children?: SchemaField[]
-}
+export type JsonValueKind = "object" | "array" | "string" | "number" | "boolean" | "null" | "unknown"
 
 export type MappingRule = {
   id: string
@@ -105,13 +97,13 @@ export type GraphConnection = {
   targetPinId: string
 }
 
-export type TriggerConfig = {
+export type TriggerArgs = {
   triggerType: TriggerType
   interval: string
   webhookPath: string
 }
 
-export type HttpConfig = {
+export type HttpArgs = {
   method: HttpMethod
   url: string
   headers: Array<{ key: string; value: string }>
@@ -119,38 +111,71 @@ export type HttpConfig = {
   bearerToken: string
   basicUsername: string
   basicPassword: string
-  autoDetectedAt?: string
-  autoDetectError?: string
 }
 
-export type MapperConfig = {
-  targetSchemaText: string
+export type MapperArgs = {
+  returnJsonText: string
   mappings: MappingRule[]
 }
 
-export type LogicConfig = {
+export type LogicArgs = {
   leftPath: string
   operator: PredicateOperator
   rightValue: string
 }
 
-export type EnumConfig = {
-  enumName: string
-  values: string[]
-  selectedValue: string
+export type NodeResultBase = {
+  error?: string
+  outputSample?: unknown
 }
 
-export type NodeData = {
-  label: string
-  nodeType: NodeKind
-  description: string
-  outputSchema: SchemaField[]
-  trigger: TriggerConfig
-  http: HttpConfig
-  mapper: MapperConfig
-  logic: LogicConfig
-  enum: EnumConfig
+export type TriggerResult = NodeResultBase & {
+  payload: Record<string, unknown> | null
 }
+
+export type HttpResult = NodeResultBase & {
+  statusCode: number | null
+  responseJson: unknown | null
+  responseText: string
+  responseHeaders: Array<{ key: string; value: string }>
+}
+
+export type MapperResult = NodeResultBase & {
+  mappedJson: Record<string, unknown> | null
+}
+
+export type LogicResult = NodeResultBase & {
+  conditionMatched: boolean | null
+}
+
+export type NodeBaseData<I, O extends NodeResultBase> = {
+  label: string
+  description: string
+  args: I
+  result: O
+}
+
+export type TriggerNodeData = NodeBaseData<TriggerArgs, TriggerResult> & {
+  nodeType: "trigger"
+}
+
+export type HttpNodeData = NodeBaseData<HttpArgs, HttpResult> & {
+  nodeType: "http"
+}
+
+export type MapperNodeData = NodeBaseData<MapperArgs, MapperResult> & {
+  nodeType: "mapper"
+}
+
+export type LogicNodeData = NodeBaseData<LogicArgs, LogicResult> & {
+  nodeType: "logic"
+}
+
+export type NodeData = TriggerNodeData | HttpNodeData | MapperNodeData | LogicNodeData
+
+export type NodeDataByKind<K extends NodeKind = NodeKind> = Extract<NodeData, { nodeType: K }>
+export type NodeArgsByKind<K extends NodeKind = NodeKind> = NodeDataByKind<K>["args"]
+export type NodeResultByKind<K extends NodeKind = NodeKind> = NodeDataByKind<K>["result"]
 
 export type FlowNode = Node<NodeData>
 export type FlowEdge = Edge

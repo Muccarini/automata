@@ -6,7 +6,7 @@ import type { INodeDefinition } from "@/components/nodes/registry/types"
 import { renderMapperInspectorOverride } from "./mapperInspectorOverride"
 import { outputPin, toDataPin } from "./shared"
 
-export const mapperNodeDefinition: INodeDefinition = {
+export const mapperNodeDefinition: INodeDefinition<"mapper"> = {
   kind: "mapper",
   disableDefaultInputParameters: true,
   renderInspectorOverride: renderMapperInspectorOverride,
@@ -35,10 +35,41 @@ export const mapperNodeDefinition: INodeDefinition = {
     ...getNodeInputParameters(data).map(toDataPin),
     outputPin("data:mapped", "Mapped"),
   ],
-  renderBody: ({ data }) => (
-    <>
-      <p className="text-sm font-semibold text-foreground">Mapping rules</p>
-      <p className="mt-1 text-xs text-muted-foreground">{data.mapper.mappings.length} active rules</p>
-    </>
-  ),
+  renderBody: ({ data }) => {
+    return (
+      <>
+        <p className="text-sm font-semibold text-foreground">Mapping rules</p>
+        <p className="mt-1 text-xs text-muted-foreground">{data.args.mappings.length} active rules</p>
+      </>
+    )
+  },
+  onEnter: ({ log }) => {
+    log("onEnter")
+  },
+  onUpdate: ({ data, log, setResult }) => {
+    try {
+      const parsed = JSON.parse(data.args.returnJsonText) as unknown
+      const mappedJson =
+        parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null
+      setResult({
+        mappedJson,
+        outputSample: mappedJson,
+        error: undefined,
+      })
+      log("onUpdate", { mappings: data.args.mappings.length })
+      return mappedJson
+    } catch {
+      setResult({
+        mappedJson: null,
+        outputSample: undefined,
+        error: "Mapper target output JSON is invalid",
+      })
+      log("onUpdate", { hasError: true })
+      return null
+    }
+  },
+  onExit: ({ next, log }) => {
+    log("onExit")
+    next()
+  },
 }
