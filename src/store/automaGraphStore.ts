@@ -466,7 +466,7 @@ export const useAutomaGraphStore = create<AutomaGraphState>()(
             data: {
               ...node.data,
               nodeType: "variable",
-              label: `${scope === "automa" ? "Automa" : "Tenant"} ${typeLabel} Variable`,
+              label: `${scope === "automa" ? "Automation" : "Tenant"} ${typeLabel} Variable`,
               description: "Outputs a typed variable value",
               args: {
                 scope,

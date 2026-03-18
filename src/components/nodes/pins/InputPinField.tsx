@@ -68,14 +68,14 @@ export function InputPinField({ pin, connected, onValueChange, onDisconnect }: I
       const parsed = JSON.parse(draft)
 
       if (parsed === null || typeof parsed !== "object") {
-        setError("Inserisci un JSON valido.")
+        setError("Enter valid JSON.")
         return
       }
 
       onValueChange({ valueType: "object", value: JSON.stringify(parsed, null, 2) })
       setOpen(false)
     } catch {
-      setError("Formato JSON non valido.")
+      setError("Invalid JSON format.")
     }
   }
 
@@ -136,11 +136,11 @@ export function InputPinField({ pin, connected, onValueChange, onDisconnect }: I
               onPointerDown={(event) => event.stopPropagation()}
             >
               <DialogHeader>
-                <DialogTitle>Modifica parametro</DialogTitle>
+                <DialogTitle>Edit parameter</DialogTitle>
                 <DialogDescription>
                   {pin.valueType === "object"
-                    ? "Inserisci un JSON valido (oggetto o array)."
-                    : "Aggiorna il valore del parametro."}
+                    ? "Enter valid JSON (object or array)."
+                    : "Update the parameter value."}
                 </DialogDescription>
               </DialogHeader>
 
@@ -172,8 +172,8 @@ export function InputPinField({ pin, connected, onValueChange, onDisconnect }: I
               {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
               <DialogFooter>
-                <DialogClose render={<Button variant="outline" />}>Annulla</DialogClose>
-                <Button onClick={saveDraft}>Salva</Button>
+                <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+                <Button onClick={saveDraft}>Save</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

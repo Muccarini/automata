@@ -63,10 +63,10 @@ function InnerCanvas() {
 
   const actions = useMemo<Array<{ label: string; nodeType: NodeKind; icon: LucideIcon; accentClassName: string; group: string }>>(
     () => [
-      { label: "Trigger", nodeType: "trigger", icon: ZapIcon, accentClassName: "text-amber-500", group: "Nodi" },
-      { label: "HTTP", nodeType: "http", icon: GlobeIcon, accentClassName: "text-sky-400", group: "Nodi" },
-      { label: "Mapper", nodeType: "mapper", icon: BracesIcon, accentClassName: "text-violet-400", group: "Nodi" },
-      { label: "If / Else", nodeType: "logic", icon: GitBranchIcon, accentClassName: "text-amber-400", group: "Controlli" },
+      { label: "Trigger", nodeType: "trigger", icon: ZapIcon, accentClassName: "text-amber-500", group: "Nodes" },
+      { label: "HTTP", nodeType: "http", icon: GlobeIcon, accentClassName: "text-sky-400", group: "Nodes" },
+      { label: "Mapper", nodeType: "mapper", icon: BracesIcon, accentClassName: "text-violet-400", group: "Nodes" },
+      { label: "If / Else", nodeType: "logic", icon: GitBranchIcon, accentClassName: "text-amber-400", group: "Controls" },
     ],
     []
   )

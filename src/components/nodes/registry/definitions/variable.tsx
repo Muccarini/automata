@@ -26,7 +26,7 @@ export const variableNodeDefinition: INodeDefinition<"variable"> = {
   pins: (data) => [outputPin("data:value", "Value", data.args.valueType)],
   renderBody: ({ data }) => {
     const variableToken = data.args.key ? `${"${"}${data.args.key}}` : "${VAR}"
-    const scopeLabel = data.args.scope === "tenant" ? "Tenant" : "Automa"
+    const scopeLabel = data.args.scope === "tenant" ? "Tenant" : "Automation"
     const typeLabel =
       data.args.valueType === "integer"
         ? "Integer"

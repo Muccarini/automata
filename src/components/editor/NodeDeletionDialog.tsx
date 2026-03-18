@@ -25,7 +25,7 @@ export function NodeDeletionDialog() {
   const connectionCount = node
     ? edges.filter((edge) => edge.source === node.id || edge.target === node.id).length
     : 0
-  const connectionLabel = connectionCount === 1 ? "connessione" : "connessioni"
+  const connectionLabel = connectionCount === 1 ? "connection" : "connections"
 
   const stopDialogEventPropagation = (event: MouseEvent<HTMLElement>) => {
     event.stopPropagation()
@@ -55,11 +55,11 @@ export function NodeDeletionDialog() {
           <AlertDialogMedia className="bg-destructive/10 text-destructive">
             <Trash2Icon />
           </AlertDialogMedia>
-          <AlertDialogTitle>Eliminare questo nodo?</AlertDialogTitle>
+          <AlertDialogTitle>Delete this node?</AlertDialogTitle>
           <AlertDialogDescription>
             {node
-              ? `Il nodo "${node.data.label}" verrà rimosso insieme a ${connectionCount} ${connectionLabel} collegate.`
-              : "Il nodo selezionato verrà rimosso insieme alle connessioni collegate."}
+              ? `The node "${node.data.label}" will be removed together with ${connectionCount} connected ${connectionLabel}.`
+              : "The selected node will be removed together with its connected edges."}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -68,7 +68,7 @@ export function NodeDeletionDialog() {
             onPointerUp={stopDialogEventPropagation}
             onClick={stopDialogEventPropagation}
           >
-            Annulla
+            Cancel
           </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
@@ -76,7 +76,7 @@ export function NodeDeletionDialog() {
             onPointerUp={stopDialogEventPropagation}
             onClick={handleConfirmNodeRemoval}
           >
-            Elimina nodo
+            Delete node
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

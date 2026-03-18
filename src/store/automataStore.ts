@@ -62,7 +62,7 @@ function createAutomataForTenant(tenantId: string, name?: string): Automata {
   return {
     id: uid("automa"),
     tenantId,
-    name: name?.trim() || "Nuovo automa",
+    name: name?.trim() || "New automation",
     createdAt: timestamp,
     updatedAt: timestamp,
     graph: createDefaultGraphSnapshot(),
@@ -75,7 +75,7 @@ function nextSelectionForTenant(automata: Automata[], tenantId: string): string 
 }
 
 const initialTenantId = mockTenants[0]?.id ?? "tenant-core"
-const initialAutomata = [createAutomataForTenant(initialTenantId, "Automa iniziale")]
+const initialAutomata = [createAutomataForTenant(initialTenantId, "Initial automation")]
 const initialTenantGlobalVariables = createTenantGlobalVariablesSeed(mockTenants)
 
 export const useAutomataStore = create<AutomataState>()(
@@ -107,7 +107,7 @@ export const useAutomataStore = create<AutomataState>()(
             }
           }
 
-          const seeded = createAutomataForTenant(tenantId, "Automa iniziale")
+          const seeded = createAutomataForTenant(tenantId, "Initial automation")
           return {
             selectedTenantId: tenantId,
             automata: [...state.automata, seeded],
@@ -154,7 +154,7 @@ export const useAutomataStore = create<AutomataState>()(
           let nextAutomata = state.automata.filter((item) => item.id !== automataId)
 
           if (!nextAutomata.some((item) => item.tenantId === state.selectedTenantId)) {
-            nextAutomata = [...nextAutomata, createAutomataForTenant(state.selectedTenantId, "Automa iniziale")]
+            nextAutomata = [...nextAutomata, createAutomataForTenant(state.selectedTenantId, "Initial automation")]
           }
 
           const nextSelectedAutomataId =
@@ -258,7 +258,7 @@ export const useAutomataStore = create<AutomataState>()(
           : currentState.automata
 
         if (!mergedAutomata.some((item) => item.tenantId === persistedTenantId)) {
-          mergedAutomata = [...mergedAutomata, createAutomataForTenant(persistedTenantId, "Automa iniziale")]
+          mergedAutomata = [...mergedAutomata, createAutomataForTenant(persistedTenantId, "Initial automation")]
         }
 
         const rawTenantVariables =

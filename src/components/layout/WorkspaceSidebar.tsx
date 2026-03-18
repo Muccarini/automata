@@ -29,7 +29,7 @@ export function WorkspaceSidebar() {
     <aside className="h-full w-80 border-r border-border bg-card/40">
       <div className="border-b border-border p-4">
         <p className="text-sm font-semibold">Automata Workspace</p>
-        <p className="text-xs text-muted-foreground">Scaffold multi-tenant con gestione automi</p>
+        <p className="text-xs text-muted-foreground">Multi-tenant scaffold with automata management</p>
       </div>
 
       <div className="space-y-3 border-b border-border p-4">
@@ -46,7 +46,7 @@ export function WorkspaceSidebar() {
             }}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Seleziona tenant" />
+              <SelectValue placeholder="Select tenant" />
             </SelectTrigger>
             <SelectContent>
               {tenants.map((tenant) => (
@@ -60,7 +60,7 @@ export function WorkspaceSidebar() {
 
         <Button className="w-full justify-start gap-2" onClick={() => addAutomata()}>
           <Plus className="size-4" />
-          Aggiungi automa
+          Add automation
         </Button>
       </div>
 
@@ -89,14 +89,14 @@ export function WorkspaceSidebar() {
                       event.stopPropagation()
                       removeAutomata(item.id)
                     }}
-                    aria-label="Elimina automa"
+                    aria-label="Delete automation"
                   >
                     <Trash2 className="size-4" />
                   </Button>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <Badge variant={isSelected ? "default" : "secondary"}>{isSelected ? "Attivo" : "Disponibile"}</Badge>
-                  <span className="text-muted-foreground">{item.graph.nodes.length} nodi</span>
+                  <Badge variant={isSelected ? "default" : "secondary"}>{isSelected ? "Active" : "Available"}</Badge>
+                  <span className="text-muted-foreground">{item.graph.nodes.length} nodes</span>
                 </div>
               </button>
             )
