@@ -1,10 +1,10 @@
 import { VariableIcon } from "lucide-react"
 
-import type { INodeDefinition } from "@/components/nodes/registry/types"
+import type { NodeDefinition } from "@/components/nodes/registry/types"
 
 import { outputPin } from "./shared"
 
-export const variableNodeDefinition: INodeDefinition<"variable"> = {
+export const variableNodeDefinition: NodeDefinition<"variable"> = {
   kind: "variable",
   disableDefaultInputParameters: true,
   metadata: (data) => ({

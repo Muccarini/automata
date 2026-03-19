@@ -12,6 +12,7 @@ import { persist } from "zustand/middleware"
 
 import { getPinDefinition } from "@/components/nodes/registry/nodeRegistry"
 import { getUpstreamSample } from "@/lib/graph/getUpstreamSchema"
+import { isRecord } from "@/lib/guards"
 import { executeFlowMachine } from "@/lib/runtime/executor"
 import type {
   AddNodeInput,
@@ -22,8 +23,12 @@ import type {
   MappingRule,
   NodeData,
   NodeKind,
-  PrimitiveVariableType,
+  TriggerNodeData,
+  HttpNodeData,
+  MapperNodeData,
+  LogicNodeData,
   VariableNodeData,
+  PrimitiveVariableType,
   VariableScope,
 } from "@/types/graph"
 
@@ -61,51 +66,257 @@ function isNodeKind(value: unknown): value is NodeKind {
   return value === "trigger" || value === "http" || value === "mapper" || value === "logic" || value === "variable"
 }
 
+function isFlowNode(value: unknown): value is FlowNode {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  if (typeof value.id !== "string") {
+    return false
+  }
+
+  if (!isRecord(value.position)) {
+    return false
+  }
+
+  if (typeof value.position.x !== "number" || typeof value.position.y !== "number") {
+    return false
+  }
+
+  return isRecord(value.data)
+}
+
+function isFlowEdge(value: unknown): value is FlowEdge {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  return typeof value.id === "string" && typeof value.source === "string" && typeof value.target === "string"
+}
+
+function isGlobalVariable(value: unknown): value is GlobalVariable {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  if (typeof value.id !== "string" || typeof value.key !== "string" || typeof value.value !== "string") {
+    return false
+  }
+
+  return value.valueType === "string" || value.valueType === "integer" || value.valueType === "boolean" || value.valueType === "enum"
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {}
+}
+
+function toString(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback
+}
+
+function toOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined
+}
+
+function toNullableNumber(value: unknown): number | null {
+  return typeof value === "number" ? value : null
+}
+
+function toNullableBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null
+}
+
+function toStringPairs(value: unknown): Array<{ key: string; value: string }> {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((item) => {
+      if (!isRecord(item)) {
+        return null
+      }
+
+      const key = typeof item.key === "string" ? item.key : ""
+      const pairValue = typeof item.value === "string" ? item.value : ""
+
+      return { key, value: pairValue }
+    })
+    .filter((item): item is { key: string; value: string } => item !== null)
+}
+
+function toMappingRules(value: unknown): MappingRule[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((item) => {
+      if (!isRecord(item)) {
+        return null
+      }
+
+      if (typeof item.id !== "string" || typeof item.inputPath !== "string" || typeof item.outputPath !== "string") {
+        return null
+      }
+
+      return {
+        id: item.id,
+        inputPath: item.inputPath,
+        outputPath: item.outputPath,
+      }
+    })
+    .filter((item): item is MappingRule => item !== null)
+}
+
+function toVariableScope(value: unknown, fallback: VariableScope): VariableScope {
+  return value === "automa" || value === "tenant" ? value : fallback
+}
+
+function toPrimitiveVariableType(value: unknown, fallback: PrimitiveVariableType): PrimitiveVariableType {
+  return value === "string" || value === "integer" || value === "boolean" || value === "enum" ? value : fallback
+}
+
+function toHttpMethod(value: unknown, fallback: "GET" | "POST" | "PUT" | "PATCH" | "DELETE") {
+  return value === "GET" || value === "POST" || value === "PUT" || value === "PATCH" || value === "DELETE" ? value : fallback
+}
+
+function toAuthType(value: unknown, fallback: "none" | "bearer" | "basic") {
+  return value === "none" || value === "bearer" || value === "basic" ? value : fallback
+}
+
+function toTriggerType(value: unknown, fallback: "manual" | "cron" | "webhook") {
+  return value === "manual" || value === "cron" || value === "webhook" ? value : fallback
+}
+
+function toPredicateOperator(value: unknown, fallback: "eq" | "neq" | "gt" | "lt" | "contains") {
+  return value === "eq" || value === "neq" || value === "gt" || value === "lt" || value === "contains" ? value : fallback
+}
+
 function normalizeNodeData(data: unknown, nodeType: NodeKind): NodeData {
   const fallback = defaultNodeData(nodeType)
 
-  if (!data || typeof data !== "object") {
+  if (!isRecord(data)) {
     return fallback
   }
 
-  const raw = data as Record<string, unknown>
-  const rawArgs = raw.args ?? raw.inputParams
-  const rawResult = raw.result ?? raw.outputParams
+  const rawArgs = toRecord(data.args ?? data.inputParams)
+  const rawResult = toRecord(data.result ?? data.outputParams)
+  const label = toString(data.label, fallback.label)
+  const description = toString(data.description, fallback.description)
 
-  const safeArgs = rawArgs && typeof rawArgs === "object" ? rawArgs : {}
-  const safeResult = rawResult && typeof rawResult === "object" ? rawResult : {}
-
-  const normalized = {
-    ...fallback,
-    ...(raw as Partial<NodeData>),
-    nodeType,
-    args: {
-      ...fallback.args,
-      ...(safeArgs as Record<string, unknown>),
-    } as NodeData["args"],
-    result: {
-      ...fallback.result,
-      ...(safeResult as Record<string, unknown>),
-    } as NodeData["result"],
-  } as NodeData
-
-  if (nodeType === "variable") {
-    const variableData = normalized as VariableNodeData
-    const args = variableData.args
-    const result = variableData.result
-    if (args.valueType !== "string" && args.valueType !== "integer" && args.valueType !== "boolean" && args.valueType !== "enum") {
-      args.valueType = "string"
+  switch (nodeType) {
+    case "trigger": {
+      const next = defaultNodeData("trigger")
+      return {
+        ...next,
+        label,
+        description,
+        args: {
+          triggerType: toTriggerType(rawArgs.triggerType, next.args.triggerType),
+          interval: toString(rawArgs.interval, next.args.interval),
+          webhookPath: toString(rawArgs.webhookPath, next.args.webhookPath),
+        },
+        result: {
+          payload: isRecord(rawResult.payload) ? rawResult.payload : null,
+          outputSample: rawResult.outputSample,
+          error: toOptionalString(rawResult.error),
+        },
+      }
     }
-    if (result.valueType !== "string" && result.valueType !== "integer" && result.valueType !== "boolean" && result.valueType !== "enum") {
-      result.valueType = args.valueType
+    case "http": {
+      const next = defaultNodeData("http")
+      return {
+        ...next,
+        label,
+        description,
+        args: {
+          method: toHttpMethod(rawArgs.method, next.args.method),
+          url: toString(rawArgs.url, next.args.url),
+          headers: toStringPairs(rawArgs.headers),
+          authType: toAuthType(rawArgs.authType, next.args.authType),
+          bearerToken: toString(rawArgs.bearerToken, next.args.bearerToken),
+          basicUsername: toString(rawArgs.basicUsername, next.args.basicUsername),
+          basicPassword: toString(rawArgs.basicPassword, next.args.basicPassword),
+        },
+        result: {
+          statusCode: toNullableNumber(rawResult.statusCode),
+          responseJson: rawResult.responseJson ?? null,
+          responseText: toString(rawResult.responseText, next.result.responseText),
+          responseHeaders: toStringPairs(rawResult.responseHeaders),
+          outputSample: rawResult.outputSample,
+          error: toOptionalString(rawResult.error),
+        },
+      }
+    }
+    case "mapper": {
+      const next = defaultNodeData("mapper")
+      return {
+        ...next,
+        label,
+        description,
+        args: {
+          returnJsonText: toString(rawArgs.returnJsonText, next.args.returnJsonText),
+          mappings: toMappingRules(rawArgs.mappings),
+        },
+        result: {
+          mappedJson: isRecord(rawResult.mappedJson) ? rawResult.mappedJson : null,
+          outputSample: rawResult.outputSample,
+          error: toOptionalString(rawResult.error),
+        },
+      }
+    }
+    case "logic": {
+      const next = defaultNodeData("logic")
+      return {
+        ...next,
+        label,
+        description,
+        args: {
+          leftPath: toString(rawArgs.leftPath, next.args.leftPath),
+          operator: toPredicateOperator(rawArgs.operator, next.args.operator),
+          rightValue: toString(rawArgs.rightValue, next.args.rightValue),
+        },
+        result: {
+          conditionMatched: toNullableBoolean(rawResult.conditionMatched),
+          outputSample: rawResult.outputSample,
+          error: toOptionalString(rawResult.error),
+        },
+      }
+    }
+    case "variable": {
+      const next = defaultNodeData("variable")
+      const valueType = toPrimitiveVariableType(rawArgs.valueType, next.args.valueType)
+      return {
+        ...next,
+        label,
+        description,
+        args: {
+          scope: toVariableScope(rawArgs.scope, next.args.scope),
+          key: toString(rawArgs.key, next.args.key),
+          valueType,
+        },
+        result: {
+          value:
+            typeof rawResult.value === "string" || typeof rawResult.value === "number" || typeof rawResult.value === "boolean"
+              ? rawResult.value
+              : "",
+          scope: toVariableScope(rawResult.scope, toVariableScope(rawArgs.scope, next.args.scope)),
+          key: toString(rawResult.key, toString(rawArgs.key, next.args.key)),
+          valueType: toPrimitiveVariableType(rawResult.valueType, valueType),
+          outputSample: rawResult.outputSample,
+          error: toOptionalString(rawResult.error),
+        },
+      }
+    }
+    default: {
+      return fallback
     }
   }
-
-  return normalized
 }
 
 function normalizeFlowNode(node: FlowNode): FlowNode {
-  const kindFromData = (node.data as { nodeType?: unknown })?.nodeType
+  const kindFromData = isRecord(node.data) ? node.data.nodeType : undefined
   const kindFromType = node.type
   const nodeType = isNodeKind(kindFromData) ? kindFromData : isNodeKind(kindFromType) ? kindFromType : "trigger"
 
@@ -120,6 +331,12 @@ function uid(prefix: string) {
   return `${prefix}_${crypto.randomUUID()}`
 }
 
+function defaultNodeData(nodeType: "trigger"): TriggerNodeData
+function defaultNodeData(nodeType: "http"): HttpNodeData
+function defaultNodeData(nodeType: "mapper"): MapperNodeData
+function defaultNodeData(nodeType: "logic"): LogicNodeData
+function defaultNodeData(nodeType: "variable"): VariableNodeData
+function defaultNodeData(nodeType: NodeKind): NodeData
 function defaultNodeData(nodeType: NodeKind): NodeData {
   const common = {
     label:
@@ -534,10 +751,13 @@ export const useAutomaGraphStore = create<AutomaGraphState>()(
             node.id === nodeId
               ? {
                   ...node,
-                  data: {
-                    ...node.data,
-                    ...update,
-                  } as NodeData,
+                  data: normalizeNodeData(
+                    {
+                      ...node.data,
+                      ...update,
+                    },
+                    node.data.nodeType
+                  ),
                 }
               : node
           ),
@@ -642,16 +862,19 @@ export const useAutomaGraphStore = create<AutomaGraphState>()(
         globalVariables: state.globalVariables,
       }),
       merge: (persistedState, currentState) => {
-        const persisted = (persistedState ?? {}) as Partial<AutomaGraphState>
+        const persisted = toRecord(persistedState)
+        const persistedNodes = Array.isArray(persisted.nodes) ? persisted.nodes : undefined
+        const persistedEdges = Array.isArray(persisted.edges) ? persisted.edges : undefined
+        const persistedSelectedNodeId = typeof persisted.selectedNodeId === "string" ? persisted.selectedNodeId : null
+        const persistedGlobalVariables = Array.isArray(persisted.globalVariables) ? persisted.globalVariables : undefined
 
         return {
           ...currentState,
-          ...persisted,
-          nodes: Array.isArray(persisted.nodes) ? persisted.nodes.map(normalizeFlowNode) : currentState.nodes,
-          edges: Array.isArray(persisted.edges) ? persisted.edges : currentState.edges,
-          selectedNodeId: persisted.selectedNodeId ?? currentState.selectedNodeId,
-          globalVariables: Array.isArray(persisted.globalVariables)
-            ? normalizeGlobalVariables(persisted.globalVariables)
+          nodes: persistedNodes ? persistedNodes.filter(isFlowNode).map(normalizeFlowNode) : currentState.nodes,
+          edges: persistedEdges ? persistedEdges.filter(isFlowEdge) : currentState.edges,
+          selectedNodeId: persistedSelectedNodeId ?? currentState.selectedNodeId,
+          globalVariables: persistedGlobalVariables
+            ? normalizeGlobalVariables(persistedGlobalVariables.filter(isGlobalVariable))
             : currentState.globalVariables,
         }
       },

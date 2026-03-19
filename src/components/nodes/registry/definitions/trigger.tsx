@@ -1,11 +1,11 @@
 import { ZapIcon } from "lucide-react"
 
 import { getNodeInputParameters } from "@/components/nodes/registry/parameters"
-import type { INodeDefinition } from "@/components/nodes/registry/types"
+import type { NodeDefinition } from "@/components/nodes/registry/types"
 
 import { outputPin, toDataPin } from "./shared"
 
-export const triggerNodeDefinition: INodeDefinition<"trigger"> = {
+export const triggerNodeDefinition: NodeDefinition<"trigger"> = {
   kind: "trigger",
   metadata: (data) => ({
     title: data.label,

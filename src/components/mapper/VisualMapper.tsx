@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { isRecord } from "@/lib/guards"
 import { cn } from "@/lib/utils"
 import type { JsonValueKind, MappingRule } from "@/types/graph"
 
@@ -30,20 +31,28 @@ function toJsonValueKind(value: unknown): JsonValueKind {
       return "string"
     case "number":
       return "number"
+    case "bigint":
+      return "unknown"
     case "boolean":
       return "boolean"
+    case "symbol":
+      return "unknown"
+    case "undefined":
+      return "unknown"
     case "object":
       return "object"
-    default:
+    case "function":
       return "unknown"
   }
+
+  return "unknown"
 }
 
 function flattenInputSample(value: unknown, prefix = ""): FlatField[] {
   const type = toJsonValueKind(value)
 
-  if (type === "object" && value && !Array.isArray(value)) {
-    const entries = Object.entries(value as Record<string, unknown>)
+  if (type === "object" && isRecord(value)) {
+    const entries = Object.entries(value)
     if (entries.length === 0) {
       return [{ path: prefix || "value", type }]
     }
@@ -54,8 +63,7 @@ function flattenInputSample(value: unknown, prefix = ""): FlatField[] {
   }
 
   if (type === "array") {
-    const arr = value as unknown[]
-    const sample = arr[0]
+    const sample = Array.isArray(value) ? value[0] : undefined
     const path = `${prefix || "value"}[]`
     if (sample === undefined) {
       return [{ path, type }]
@@ -69,8 +77,8 @@ function flattenInputSample(value: unknown, prefix = ""): FlatField[] {
 function flattenTargetJson(value: unknown, prefix = ""): FlatField[] {
   const type = toJsonValueKind(value)
 
-  if (type === "object" && value && !Array.isArray(value)) {
-    const entries = Object.entries(value as Record<string, unknown>)
+  if (type === "object" && isRecord(value)) {
+    const entries = Object.entries(value)
     return entries.flatMap(([key, child]) => {
       const nextPath = prefix ? `${prefix}.${key}` : key
       return flattenTargetJson(child, nextPath)
@@ -78,8 +86,7 @@ function flattenTargetJson(value: unknown, prefix = ""): FlatField[] {
   }
 
   if (type === "array") {
-    const arr = value as unknown[]
-    const sample = arr[0]
+    const sample = Array.isArray(value) ? value[0] : undefined
     const path = `${prefix}[]`
     if (sample === undefined) {
       return [{ path, type }]
@@ -92,7 +99,7 @@ function flattenTargetJson(value: unknown, prefix = ""): FlatField[] {
 
 function parseTargetFields(returnJsonText: string): { fields: FlatField[]; error: string } {
   try {
-    const parsed = JSON.parse(returnJsonText) as unknown
+    const parsed = JSON.parse(returnJsonText)
     const fields = flattenTargetJson(parsed)
     return { fields, error: "" }
   } catch (error) {

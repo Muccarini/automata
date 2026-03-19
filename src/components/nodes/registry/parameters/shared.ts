@@ -1,4 +1,5 @@
 import type { InlineValue, NodeData } from "@/types/graph"
+import { isRecord } from "@/lib/guards"
 
 import type { InputParameterDescriptor } from "@/components/nodes/registry/types"
 
@@ -19,17 +20,16 @@ export function parseStringArray(value: string) {
 
 export function parseHeaders(value: string) {
   try {
-    const parsed = JSON.parse(value) as unknown
+    const parsed = JSON.parse(value)
     if (!Array.isArray(parsed)) {
       return null
     }
 
     return parsed.map((item) => {
-      if (item && typeof item === "object") {
-        const header = item as { key?: unknown; value?: unknown }
+      if (isRecord(item)) {
         return {
-          key: String(header.key ?? ""),
-          value: String(header.value ?? ""),
+          key: String(item.key ?? ""),
+          value: String(item.value ?? ""),
         }
       }
 

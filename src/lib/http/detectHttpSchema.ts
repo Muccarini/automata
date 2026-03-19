@@ -1,4 +1,5 @@
 import type { HttpArgs } from "@/types/graph"
+import { isRecord } from "@/lib/guards"
 
 export type DetectHttpSchemaResult =
   | {
@@ -46,12 +47,12 @@ export async function detectHttpSchema(config: HttpArgs): Promise<DetectHttpSche
 
     if (responseText.trim()) {
       try {
-        const parsed = JSON.parse(responseText) as unknown
+        const parsed = JSON.parse(responseText)
         responseJson = parsed
         outputSample = Array.isArray(parsed) ? (parsed[0] ?? parsed) : parsed
 
-        if (outputSample && typeof outputSample === "object" && !Array.isArray(outputSample)) {
-          topLevelCount = Object.keys(outputSample as Record<string, unknown>).length
+        if (isRecord(outputSample)) {
+          topLevelCount = Object.keys(outputSample).length
         }
       } catch {
         responseJson = null

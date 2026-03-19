@@ -4,7 +4,7 @@ import { getNodeDefinition } from "./definitions"
 import { getNodeInputParametersInternal } from "./parameters"
 
 export { getNodeInputParameters } from "./parameters"
-export type { INodeDefinition } from "./types"
+export type { NodeDefinition } from "./types"
 
 export { getNodeDefinition }
 

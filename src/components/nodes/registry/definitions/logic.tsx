@@ -1,7 +1,7 @@
 import { GitBranchIcon } from "lucide-react"
 
 import { getNodeInputParameters } from "@/components/nodes/registry/parameters"
-import type { INodeDefinition } from "@/components/nodes/registry/types"
+import type { NodeDefinition } from "@/components/nodes/registry/types"
 
 import { toDataPin } from "./shared"
 
@@ -41,7 +41,7 @@ function evaluate(operator: "eq" | "neq" | "gt" | "lt" | "contains", left: unkno
   }
 }
 
-export const logicNodeDefinition: INodeDefinition<"logic"> = {
+export const logicNodeDefinition: NodeDefinition<"logic"> = {
   kind: "logic",
   metadata: (data) => ({
     title: data.label,
