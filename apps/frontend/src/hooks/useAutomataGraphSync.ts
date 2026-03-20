@@ -6,6 +6,7 @@ import { createDefaultGraphSnapshot, useAutomaGraphStore } from "@/store/automaG
 export function useAutomataGraphSync() {
   const selectedAutomataId = useAutomataStore((state) => state.selectedAutomataId)
   const updateAutomataGraph = useAutomataStore((state) => state.updateAutomataGraph)
+  const persistAutomataGraph = useAutomataStore((state) => state.persistAutomataGraph)
 
   const nodes = useAutomaGraphStore((state) => state.nodes)
   const edges = useAutomaGraphStore((state) => state.edges)
@@ -33,11 +34,21 @@ export function useAutomataGraphSync() {
       return
     }
 
-    updateAutomataGraph(selectedAutomataId, {
+    const snapshot = {
       nodes,
       edges,
       selectedNodeId,
       globalVariables,
-    })
-  }, [edges, globalVariables, nodes, selectedAutomataId, selectedNodeId, updateAutomataGraph])
+    }
+
+    updateAutomataGraph(selectedAutomataId, snapshot)
+
+    const timeout = window.setTimeout(() => {
+      void persistAutomataGraph(selectedAutomataId, snapshot)
+    }, 500)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [edges, globalVariables, nodes, persistAutomataGraph, selectedAutomataId, selectedNodeId, updateAutomataGraph])
 }
