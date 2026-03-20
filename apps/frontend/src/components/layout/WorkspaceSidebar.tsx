@@ -17,6 +17,7 @@ export function WorkspaceSidebar() {
   const tenants = useAutomataStore((state) => state.tenants)
   const automata = useAutomataStore((state) => state.automata)
   const selectedTenantId = useAutomataStore((state) => state.selectedTenantId)
+  const isBootstrapped = useAutomataStore((state) => state.isBootstrapped)
   const selectedAutomataId = useAutomataStore((state) => state.selectedAutomataId)
   const selectTenant = useAutomataStore((state) => state.selectTenant)
   const selectAutomata = useAutomataStore((state) => state.selectAutomata)
@@ -50,7 +51,7 @@ export function WorkspaceSidebar() {
             </SelectTrigger>
             <SelectContent>
               {tenants.map((tenant) => (
-                <SelectItem key={tenant.id} value={tenant.id}>
+                <SelectItem key={tenant.id} value={tenant.id} disabled={!isBootstrapped}>
                   {tenant.name}
                 </SelectItem>
               ))}
@@ -58,7 +59,7 @@ export function WorkspaceSidebar() {
           </Select>
         </div>
 
-        <Button className="w-full justify-start gap-2" onClick={() => addAutomata()}>
+        <Button className="w-full justify-start gap-2" onClick={() => addAutomata()} disabled={!isBootstrapped}>
           <Plus className="size-4" />
           Aggiungi automa
         </Button>

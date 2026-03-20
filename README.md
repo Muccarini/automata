@@ -1,73 +1,81 @@
-# React + TypeScript + Vite
+# Automata Monorepo
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Monorepo con split frontend/backend e prima iterazione backend multi-tenant.
 
-Currently, two official plugins are available:
+## Workspace
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `apps/frontend`: React + Vite + TypeScript
+- `apps/backend`: Bun + Elysia + Drizzle + PostgreSQL
+- `packages/shared-contracts`: schemi Zod e DTO condivisi
 
-## React Compiler
+## Prerequisiti
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js 22+
+- npm 10+
+- Bun 1.1+
+- PostgreSQL 15+
 
-## Expanding the ESLint configuration
+## Setup
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Database bootstrap (schema + RLS + seed)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Assicurati di avere `DATABASE_URL` impostato (default backend: `postgres://postgres:postgres@localhost:5432/automata`).
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run db:migrate
+npm run db:seed
 ```
+
+Seed utente demo:
+
+- email: `admin@automata.local`
+- password: `admin12345`
+- tenant id: `11111111-1111-1111-1111-111111111111`
+
+## Avvio sviluppo
+
+Frontend:
+
+```bash
+npm run dev
+```
+
+Backend:
+
+```bash
+npm run dev:backend
+```
+
+Frontend usa `VITE_API_BASE_URL` (default: `http://localhost:3000/api`).
+
+## Quality checks
+
+```bash
+npm run lint
+npm run build
+```
+
+## Note architetturali backend
+
+- Architettura 2-layer: `api` + `bll`
+- Multi-tenant e RBAC enforce via PostgreSQL RLS policies
+- Ogni request autenticata usa transaction dedicata con:
+  - `SET LOCAL app.current_tenant_id`
+  - `SET LOCAL request.jwt.claims`
+
+## Rust boundary (design v1, non implementato)
+
+Candidate principali per la futura componente Rust:
+
+- motore runtime di esecuzione grafo (`executor`) per throughput e latenza predicibile
+- trasformazioni JSON/mapping ad alto volume
+
+Boundary consigliato per iterazione successiva:
+
+- servizio/worker Rust separato
+- protocollo di integrazione HTTP interno o gRPC
+- payload versionati tramite contratti condivisi per evitare drift
