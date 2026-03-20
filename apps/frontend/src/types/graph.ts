@@ -200,9 +200,9 @@ export type VariableNodeData = NodeBaseData<VariableArgs, VariableResult> & {
 
 export type NodeData = TriggerNodeData | HttpNodeData | MapperNodeData | LogicNodeData | VariableNodeData
 
-export type NodeDataByKind<K extends NodeKind = NodeKind> = Extract<NodeData, { nodeType: K }>
-export type NodeArgsByKind<K extends NodeKind = NodeKind> = NodeDataByKind<K>["args"]
-export type NodeResultByKind<K extends NodeKind = NodeKind> = NodeDataByKind<K>["result"]
+export type NodeDataByKind<T extends NodeKind = NodeKind> = Extract<NodeData, { nodeType: T }>
+export type NodeArgsByKind<T extends NodeKind = NodeKind> = NodeDataByKind<T>["args"]
+export type NodeResultByKind<T extends NodeKind = NodeKind> = NodeDataByKind<T>["result"]
 
 export type FlowNode = Node<NodeData>
 export type FlowEdge = Edge

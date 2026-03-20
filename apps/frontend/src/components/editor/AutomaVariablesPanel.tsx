@@ -140,15 +140,15 @@ export function AutomaVariablesPanel({ embedded = false, initiallyOpen = true, c
             className="flex min-w-0 flex-1 items-center justify-between text-left text-sm font-semibold"
             onClick={() => setIsOpen((open) => !open)}
             aria-expanded={isOpen}
-            aria-label="Toggle automa variables"
+            aria-label="Toggle automation variables"
           >
-            <span className="truncate">Automa variables ({globalVariables.length})</span>
+            <span className="truncate">Automation variables ({globalVariables.length})</span>
             {isOpen ? <ChevronUpIcon className="size-4 text-muted-foreground" /> : <ChevronDownIcon className="size-4 text-muted-foreground" />}
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button size="icon" variant="outline" aria-label="Add automa variable">
+                <Button size="icon" variant="outline" aria-label="Add automation variable">
                   <Plus className="size-4" />
                 </Button>
               }
@@ -168,7 +168,7 @@ export function AutomaVariablesPanel({ embedded = false, initiallyOpen = true, c
 
         {isOpen ? (
           <>
-            <p className="px-3 pt-2 text-xs text-muted-foreground">Variables scoped to the selected automa</p>
+            <p className="px-3 pt-2 text-xs text-muted-foreground">Variables scoped to the selected automation</p>
             <ScrollArea className="h-[calc(100vh-6.75rem)]">{sharedContent}</ScrollArea>
           </>
         ) : null}
@@ -180,14 +180,14 @@ export function AutomaVariablesPanel({ embedded = false, initiallyOpen = true, c
     <aside className={cn("h-full w-80 border-r border-border bg-card/50", className)}>
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold">Automa variables</h2>
-          <p className="text-xs text-muted-foreground">Variables scoped to the selected automa</p>
+          <h2 className="text-sm font-semibold">Automation variables</h2>
+          <p className="text-xs text-muted-foreground">Variables scoped to the selected automation</p>
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button size="icon" variant="outline" aria-label="Add automa variable">
+                <Button size="icon" variant="outline" aria-label="Add automation variable">
                   <Plus className="size-4" />
                 </Button>
               }

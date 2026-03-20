@@ -142,7 +142,7 @@ export function NodeRenderer({ id, data }: NodeProps<NodeData>) {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={collapsed ? "Espandi nodo" : "Comprimi nodo"}
+                  aria-label={collapsed ? "Expand node" : "Collapse node"}
                   className="mr-7 text-muted-foreground"
                   onClick={(event) => {
                     event.stopPropagation()
@@ -204,7 +204,7 @@ export function NodeRenderer({ id, data }: NodeProps<NodeData>) {
         >
           <ContextMenuGroup>
             <ContextMenuLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Controlli
+              Controls
             </ContextMenuLabel>
             <ContextMenuItem
               variant="destructive"
@@ -213,11 +213,11 @@ export function NodeRenderer({ id, data }: NodeProps<NodeData>) {
               onClick={handleRequestNodeRemoval}
             >
               <Trash2Icon className="size-4" />
-              Elimina nodo
-              <ContextMenuShortcut>Canc</ContextMenuShortcut>
+              Delete node
+              <ContextMenuShortcut>Del</ContextMenuShortcut>
             </ContextMenuItem>
             <ContextMenuItem disabled className="rounded-md px-2 py-1.5 text-xs text-muted-foreground">
-              Click destro sui pin per scollegare
+              Right-click pins to disconnect
             </ContextMenuItem>
           </ContextMenuGroup>
         </ContextMenuContent>

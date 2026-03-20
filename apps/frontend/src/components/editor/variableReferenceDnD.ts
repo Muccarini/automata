@@ -1,4 +1,5 @@
 import type { PrimitiveVariableType, VariableScope } from "@/types/graph"
+import { isRecord } from "@/lib/guards"
 
 export const VARIABLE_REFERENCE_DRAG_TYPE = "application/x-automa-variable-reference"
 
@@ -22,8 +23,8 @@ export function serializeVariableReferenceDragPayload(payload: VariableReference
 
 export function parseVariableReferenceDragPayload(raw: string): VariableReferenceDragPayload | null {
   try {
-    const parsed = JSON.parse(raw) as Partial<VariableReferenceDragPayload>
-    if (!parsed || typeof parsed !== "object") {
+    const parsed = JSON.parse(raw)
+    if (!isRecord(parsed)) {
       return null
     }
 

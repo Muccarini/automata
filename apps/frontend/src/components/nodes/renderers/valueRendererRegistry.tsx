@@ -11,7 +11,7 @@ type ValueRendererProps = {
   onChange: (value: InlineValue) => void
 }
 
-export interface IValueRenderer {
+export type ValueRenderer = {
   valueType: InlineValueType
   render: (props: ValueRendererProps) => ReactNode
 }
@@ -36,7 +36,7 @@ function isEnumValue(value: InlineValue): value is Extract<InlineValue, { valueT
   return value.valueType === "enum"
 }
 
-const registry: Record<InlineValueType, IValueRenderer> = {
+const registry: Record<InlineValueType, ValueRenderer> = {
   string: {
     valueType: "string",
     render: ({ value, onChange }) => {

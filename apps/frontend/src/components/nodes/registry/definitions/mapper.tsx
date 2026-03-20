@@ -1,12 +1,12 @@
 import { BracesIcon } from "lucide-react"
 
 import { getNodeInputParameters } from "@/components/nodes/registry/parameters"
-import type { INodeDefinition } from "@/components/nodes/registry/types"
+import type { NodeDefinition } from "@/components/nodes/registry/types"
 
 import { renderMapperInspectorOverride } from "./mapperInspectorOverride"
 import { outputPin, toDataPin } from "./shared"
 
-export const mapperNodeDefinition: INodeDefinition<"mapper"> = {
+export const mapperNodeDefinition: NodeDefinition<"mapper"> = {
   kind: "mapper",
   disableDefaultInputParameters: true,
   renderInspectorOverride: renderMapperInspectorOverride,

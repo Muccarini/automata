@@ -39,7 +39,7 @@ export function ObjectJsonValueRenderer({ value, onChange }: ObjectJsonValueRend
       const parsed = JSON.parse(draft)
 
       if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") {
-        setError("Inserisci un oggetto JSON (es. {\"chiave\":\"valore\"}).")
+        setError("Enter a JSON object (e.g. {\"key\":\"value\"}).")
         return
       }
 
@@ -47,7 +47,7 @@ export function ObjectJsonValueRenderer({ value, onChange }: ObjectJsonValueRend
       setError(null)
       setOpen(false)
     } catch {
-      setError("Formato JSON non valido.")
+      setError("Invalid JSON format.")
     }
   }
 
@@ -62,13 +62,13 @@ export function ObjectJsonValueRenderer({ value, onChange }: ObjectJsonValueRend
             setError(null)
           }}
         >
-          Modifica
+          Edit
         </DialogTrigger>
         <DialogContent className="max-w-lg" showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>Modifica oggetto JSON</DialogTitle>
+            <DialogTitle>Edit JSON object</DialogTitle>
             <DialogDescription>
-              Inserisci un oggetto JSON valido. Array e valori primitivi non sono consentiti in questo campo.
+              Enter a valid JSON object. Arrays and primitive values are not allowed in this field.
             </DialogDescription>
           </DialogHeader>
 
@@ -85,8 +85,8 @@ export function ObjectJsonValueRenderer({ value, onChange }: ObjectJsonValueRend
           {error ? <p className="text-xs text-destructive">{error}</p> : null}
 
           <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Annulla</DialogClose>
-            <Button onClick={saveDraft}>Salva</Button>
+            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <Button onClick={saveDraft}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -50,7 +50,7 @@ export function TenantGlobalVariablesSection() {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Tenant global variables</p>
-          <p className="text-xs text-muted-foreground">Shared across all automi in this tenant</p>
+          <p className="text-xs text-muted-foreground">Shared across all automata in this tenant</p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger

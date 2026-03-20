@@ -14,11 +14,19 @@ export function inferJsonValueKind(value: unknown): JsonValueKind {
       return "string"
     case "number":
       return "number"
+    case "bigint":
+      return "unknown"
     case "boolean":
       return "boolean"
+    case "symbol":
+      return "unknown"
+    case "undefined":
+      return "unknown"
     case "object":
       return "object"
-    default:
+    case "function":
       return "unknown"
   }
+
+  return "unknown"
 }

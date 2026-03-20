@@ -1,12 +1,12 @@
 import { GlobeIcon } from "lucide-react"
 
 import { getNodeInputParameters } from "@/components/nodes/registry/parameters"
-import type { INodeDefinition } from "@/components/nodes/registry/types"
+import type { NodeDefinition } from "@/components/nodes/registry/types"
 
 import { renderHttpInspectorOverride } from "./httpInspectorOverride"
 import { outputPin, toDataPin } from "./shared"
 
-export const httpNodeDefinition: INodeDefinition<"http"> = {
+export const httpNodeDefinition: NodeDefinition<"http"> = {
   kind: "http",
   disableDefaultInputParameters: true,
   renderInspectorOverride: renderHttpInspectorOverride,

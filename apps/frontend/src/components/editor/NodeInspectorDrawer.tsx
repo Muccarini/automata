@@ -98,7 +98,7 @@ export function NodeInspectorDrawer() {
                 <div className="flex justify-end pt-2">
                   <Button variant="destructive" size="sm" onClick={() => requestNodeRemoval(node.id)}>
                     <Trash2Icon />
-                    Elimina nodo
+                    Delete node
                   </Button>
                 </div>
               </div>
